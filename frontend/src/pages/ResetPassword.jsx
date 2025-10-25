@@ -4,7 +4,7 @@ import { useNavigate, Link } from "react-router-dom";
 
 export default function ResetPassword() {
   const [email, setEmail] = useState("");
-  const [resetCode, setResetCode] = useState("");
+  const [code, setCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -16,16 +16,18 @@ export default function ResetPassword() {
     setMessage("");
 
     try {
-      const res = await axios.post("http://localhost:6000/api/reset/reset-password", {
+      // ✅ Connect to your backend on port 5000
+      const res = await axios.post("http://localhost:5000/api/reset/reset-password", {
         email,
-        resetCode,
+        code,
         newPassword,
       });
 
       setMessage(res.data.message || "Password reset successful!");
+      // ✅ Redirect to login after 2s
       setTimeout(() => navigate("/login"), 2000);
     } catch (err) {
-      console.error(err);
+      console.error("Reset password error:", err);
       setMessage(err.response?.data?.message || "Failed to reset password.");
     } finally {
       setLoading(false);
@@ -50,8 +52,8 @@ export default function ResetPassword() {
           <input
             type="text"
             placeholder="Enter 6-digit reset code"
-            value={resetCode}
-            onChange={(e) => setResetCode(e.target.value)}
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
             className="w-full border border-gray-300 p-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
             required
           />
@@ -87,6 +89,7 @@ export default function ResetPassword() {
         )}
 
         <p className="text-center mt-6 text-gray-600">
+          Remembered your password?{" "}
           <Link to="/login" className="text-blue-600 hover:underline">
             Back to Login
           </Link>
