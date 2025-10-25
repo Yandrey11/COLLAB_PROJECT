@@ -14,11 +14,14 @@ export default function ForgotPassword() {
     setMessage("");
 
     try {
-      const res = await axios.post("http://localhost:6000/api/reset/forgot-password", { email });
+      // ✅ fixed port: your backend runs on 5000, not 6000
+      const res = await axios.post("http://localhost:5000/api/reset/forgot-password", { email });
       setMessage(res.data.message || "Reset code sent! Check your email.");
-      setTimeout(() => navigate("/reset-password"), 1500);
+
+      // ✅ wait a bit before redirecting to reset-password page
+      setTimeout(() => navigate("/reset-password"), 2000);
     } catch (err) {
-      console.error(err);
+      console.error("Forgot password error:", err);
       setMessage(err.response?.data?.message || "Failed to send reset code.");
     } finally {
       setLoading(false);
