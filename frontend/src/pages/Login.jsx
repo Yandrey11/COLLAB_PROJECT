@@ -1,240 +1,195 @@
 import { useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import ReCAPTCHA from "react-google-recaptcha";
 
 function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [recaptchaToken, setRecaptchaToken] = useState(null);
   const navigate = useNavigate();
+
+  // ✅ Your reCAPTCHA site key
+  const SITE_KEY = "6Lf-8vErAAAAAGohFk-EE6OaLY60jkwo1gTH05B7";
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    
+
     try {
-      const res = await axios.post("http://localhost:5000/api/login", {
+      const res = await axios.post("http://localhost:5000/api/auth/login", {
         email,
         password,
+        recaptchaToken, // ✅ match backend variable name
       });
-      localStorage.setItem("token", res.data.token);
-      alert("Login successful!");
-      navigate("/dashboard");
+
+      localStorage.setItem("authToken", res.data.token);
+      localStorage.setItem("user", JSON.stringify(res.data.result));
+
+      alert("✅ Login successful!");
+      navigate("/dashboard", { replace: true });
     } catch (err) {
       console.error(err);
-      alert(err.response?.data?.message || "Invalid email or password");
+      alert(err.response?.data?.message || "❌ Invalid email or password");
     }
   };
-
-  const handleSignupChange = (e) => {
-    console.log("Signup input changed:", e.target.value);
-  };
-
   return (
     <>
       <style>{`
         @import url('https://fonts.googleapis.com/css?family=Montserrat:400,800');
         * { box-sizing: border-box; }
-        body {
+        html, body, #root { height: 100%; margin: 0; padding: 0; }
+        .page {
+          width: 100vw;
+          min-height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
           background: #f6f5f7;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          flex-direction: column;
           font-family: 'Montserrat', sans-serif;
-          height: 100vh;
-          margin: -20px 0 50px;
+          padding: 24px;
+          margin: 0;
+          box-sizing: border-box;
         }
-        h1 { font-weight: bold; margin: 0; }
-        p { font-size: 14px; font-weight: 100; line-height: 20px; letter-spacing: 0.5px; margin: 20px 0 30px; }
-        span { font-size: 12px; }
-
-        button {
-          border-radius: 20px;
-          border: 1px solid #FF4B2B;
-          background-color: #FF4B2B;
-          color: #FFFFFF;
-          font-size: 12px;
-          font-weight: bold;
-          padding: 12px 45px;
-          letter-spacing: 1px;
-          text-transform: uppercase;
-          transition: transform 80ms ease-in;
-          cursor: pointer;
-        }
-
-        button:active { transform: scale(0.95); }
-        button.ghost { background-color: transparent; border-color: #FFFFFF; }
-
-        form {
-          background-color: #FFFFFF;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-direction: column;
-          padding: 0 50px;
-          height: 100%;
-          text-align: center;
-        }
-
-        input {
-          background-color: #eee;
-          border: none;
-          padding: 12px 15px;
-          margin: 8px 0;
-          width: 100%;
-        }
-
-        .container {
-          background-color: #fff;
-          border-radius: 10px;
-          box-shadow: 0 14px 28px rgba(0,0,0,0.25),
-                      0 10px 10px rgba(0,0,0,0.22);
-          position: relative;
-          overflow: hidden;
-          width: 768px;
+        .card {
+          width: 380px;
           max-width: 100%;
-          min-height: 480px;
+          background: #fff;
+          border-radius: 10px;
+          box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+          padding: 32px;
+          text-align: center;
         }
-
-        .form-container {
-          position: absolute;
-          top: 0;
-          height: 100%;
-          transition: all 0.6s ease-in-out;
+        h1 { margin: 0 0 12px 0; font-size: 24px; color: #333; }
+        p { margin: 0 0 20px 0; color: #666; font-size: 14px; }
+        form { display: flex; flex-direction: column; gap: 10px; }
+        input {
+          padding: 12px 14px;
+          border-radius: 6px;
+          border: 1px solid #e3e3e3;
+          background: #000000ff;
+          font-size: 14px;
         }
-
-        .sign-in-container {
-          left: 0;
-          width: 50%;
-          z-index: 2;
+        .actions {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-top: 8px;
         }
-
-        .sign-up-container {
-          left: 0;
-          width: 50%;
-          opacity: 0;
-          z-index: 1;
+        .link {
+          color: #666;
+          font-size: 13px;
+          text-decoration: none;
         }
-
-        .container.right-panel-active .sign-in-container {
-          transform: translateX(100%);
+        button {
+          margin-top: 12px;
+          border: none;
+          background: linear-gradient(90deg,#FF4B2B,#FF416C);
+          color: #fff;
+          padding: 12px;
+          border-radius: 8px;
+          cursor: pointer;
+          font-weight: 700;
+          transition: all 0.2s ease;
         }
-
-        .container.right-panel-active .sign-up-container {
-          transform: translateX(100%);
-          opacity: 1;
-          z-index: 5;
-          animation: show 0.6s;
+        button:hover {
+          transform: scale(1.03);
         }
-
-        @keyframes show {
-          0%, 49.99% { opacity: 0; z-index: 1; }
-          50%, 100% { opacity: 1; z-index: 5; }
+        /* Secondary signup button */
+        .signupBtn {
+          background: #fff;
+          color: #FF416C;
+          border: 2px solid #FF416C;
+          padding: 10px;
+          margin-top: 8px;
         }
-
-        .overlay-container {
-          position: absolute;
-          top: 0;
-          left: 50%;
-          width: 50%;
-          height: 100%;
-          overflow: hidden;
-          transition: transform 0.6s ease-in-out;
-          z-index: 100;
+        .signupBtn:hover {
+          transform: scale(1.03);
+          background: rgba(255,65,108,0.04);
         }
-
-        .container.right-panel-active .overlay-container {
-          transform: translateX(-100%);
-        }
-
-        .overlay {
-          background: linear-gradient(to right, #FF4B2B, #FF416C);
-          color: #FFFFFF;
-          position: relative;
-          left: -100%;
-          height: 100%;
-          width: 200%;
-          transform: translateX(0);
-          transition: transform 0.6s ease-in-out;
-        }
-
-        .container.right-panel-active .overlay {
-          transform: translateX(50%);
-        }
-
-        .overlay-panel {
-          position: absolute;
+        /* Google login button */
+        .googleBtn {
+          background: #fff;
+          color: #444;
+          border: 1px solid #ddd;
+          padding: 10px;
+          margin-top: 8px;
           display: flex;
           align-items: center;
           justify-content: center;
-          flex-direction: column;
-          padding: 0 40px;
-          text-align: center;
-          top: 0;
-          height: 100%;
-          width: 50%;
-          transform: translateX(0);
-          transition: transform 0.6s ease-in-out;
+          gap: 8px;
+          border-radius: 8px;
+          cursor: pointer;
+          font-weight: 600;
         }
-
-        .overlay-left { transform: translateX(-20%); }
-        .container.right-panel-active .overlay-left { transform: translateX(0); }
-        .overlay-right { right: 0; transform: translateX(0); }
-        .container.right-panel-active .overlay-right { transform: translateX(20%); }
+        .googleBtn:hover {
+          transform: scale(1.02);
+          box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+        }
+        @media (max-width: 420px) {
+          .card { padding: 20px; width: 100%; }
+        }
       `}</style>
 
-      <div className={`container ${isSignUp ? "right-panel-active" : ""}`}>
-        {/* Sign Up */}
-        <div className="form-container sign-up-container">
-          <form>
-            <h1>Create Account</h1>
-            <span>or use your email for registration</span>
-            <input type="text" name="name" placeholder="Name" onChange={handleSignupChange} />
-            <input type="email" name="email" placeholder="Email" onChange={handleSignupChange} />
-            <input type="password" name="password" placeholder="Password" onChange={handleSignupChange} />
-            <button type="button">Sign Up</button>
-          </form>
-        </div>
-
-        {/* Sign In */}
-        <div className="form-container sign-in-container">
+      <div className="page">
+        <div className="card" role="main">
+          <h1>Sign In</h1>
+          <p>Use your account to access the dashboard</p>
           <form onSubmit={handleSubmit}>
-            <h1>Sign in</h1>
-            <span>or use your account</span>
             <input
               type="email"
               placeholder="Email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              required
+              autoComplete="email"
             />
             <input
               type="password"
               placeholder="Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              required
+              autoComplete="current-password"
             />
-            <a href="#">Forgot your password?</a>
-            <button type="submit">Sign In</button>
-          </form>
-        </div>
 
-        {/* Overlay */}
-        <div className="overlay-container">
-          <div className="overlay">
-            <div className="overlay-panel overlay-left">
-              <h1>Welcome Back!</h1>
-              <p>To keep connected with us please login with your personal info</p>
-              <button className="ghost" onClick={() => setIsSignUp(false)}>
-                Sign In
-              </button>
+            {/* ✅ reCAPTCHA component */}
+            <ReCAPTCHA
+              sitekey={SITE_KEY}
+              onChange={(token) => setRecaptchaToken(token)}
+              style={{ marginTop: "10px", alignSelf: "center" }}
+            />
+
+            <div className="actions">
+              <a className="link" href="./forgot-password">Forgot password?</a>
             </div>
-            <div className="overlay-panel overlay-right">
-              <h1>Hello, Friend!</h1>
-              <p>Enter your personal details and start your journey with us</p>
-              <button className="ghost" onClick={() => setIsSignUp(true)}>
-                Sign Up
-              </button>
-            </div>
-          </div>
+            <button type="submit">Sign In</button>
+
+            {/* Google login button */}
+            <button
+              type="button"
+              className="googleBtn"
+              onClick={() => {
+                // Redirect to backend OAuth endpoint to start Google sign-in flow
+                window.location.href = "http://localhost:5000/auth/google";
+              }}
+              aria-label="Sign in with Google"
+            >
+              {/* simple text label; replace with an SVG icon if desired */}
+              Sign in with Google
+            </button>
+
+            {/* New signup button below the Sign In button */}
+            <button
+              type="button"
+              className="signupBtn"
+              onClick={() => navigate("/signup")}
+            >
+              Sign Up
+            </button>
+            
+          </form>
         </div>
       </div>
     </>
