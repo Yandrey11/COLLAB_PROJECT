@@ -6,63 +6,70 @@ export default function Dashboard() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const controller = new AbortController();
-    const timer = setTimeout(() => {
-      (async () => {
-        const token = localStorage.getItem("authToken"); // ✅ fixed key
+useEffect(() => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => {
+    (async () => {
+      // ✅ Step 1: Check if token was passed via Google redirect URL
+      const urlParams = new URLSearchParams(window.location.search);
+      const tokenFromURL = urlParams.get("token");
 
-        if (!token) {
-          console.warn("🚫 No token found, redirecting to login...");
+      if (tokenFromURL) {
+        console.log("🔑 Received Google token from URL");
+        localStorage.setItem("token", tokenFromURL);
+
+        // ✅ Optionally clean up the URL
+        window.history.replaceState({}, document.title, "/dashboard");
+      }
+
+      // ✅ Step 2: Get token (from localStorage or Google)
+      const token = localStorage.getItem("token");
+
+      if (!token) {
+        console.warn("🚫 No token found, redirecting to login...");
+        navigate("/login", { replace: true });
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const baseUrl = process.env.REACT_APP_API_URL || "http://localhost:5000";
+        const res = await fetch(`${baseUrl}/api/auth/me`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          signal: controller.signal,
+        });
+
+        if (!res.ok) {
+          console.warn("🚫 Token validation failed:", res.status);
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
           navigate("/login", { replace: true });
-          setLoading(false);
-          return;
+        } else {
+          const data = await res.json();
+          const resolvedUser = data.user ?? data;
+          setUser(resolvedUser);
+          localStorage.setItem("user", JSON.stringify(resolvedUser));
         }
-
-        try {
-          const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
-          const res = await fetch(`${baseUrl}/api/auth/me`, {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            signal: controller.signal,
-          });
-
-          if (!res.ok) {
-            console.warn("🚫 Token validation failed:", res.status);
-            localStorage.removeItem("authToken");
-            localStorage.removeItem("user");
-            navigate("/login", { replace: true });
-          } else {
-            const data = await res.json();
-            const resolvedUser = data.user ?? data;
-            setUser(resolvedUser);
-            try {
-              localStorage.setItem("user", JSON.stringify(resolvedUser));
-            } catch (err) {
-              console.error("Failed to store user in localStorage:", err);
-            }
-          }
-        } catch (err) {
-          if (err.name !== "AbortError") {
-            console.error("Error fetching user from backend:", err);
-            // ✅ fallback to local user if available
-            const localUser = localStorage.getItem("user");
-            if (localUser) setUser(JSON.parse(localUser));
-          }
-        } finally {
-          setLoading(false);
+      } catch (err) {
+        if (err.name !== "AbortError") {
+          console.error("Error fetching user from backend:", err);
         }
-      })();
-    }, 100);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, 100);
 
-    return () => {
-      clearTimeout(timer);
-      controller.abort();
-    };
-  }, [navigate]);
+  return () => {
+    clearTimeout(timer);
+    controller.abort();
+  };
+}, [navigate]);
+
 
   const handleLogout = async () => {
     if (confirm("Are you sure you want to log out?")) {
