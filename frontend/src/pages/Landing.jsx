@@ -93,7 +93,7 @@ const styles = {
     <div style={styles.container}>
       {/* Navbar */}
       <header style={styles.navbar}>
-        <h1 style={styles.logo}>Collab Project</h1>
+        <h1 style={styles.logo}>Guidance</h1>
         <nav style={styles.navLinks}>
           <Link
             to="/login"
@@ -104,7 +104,7 @@ const styles = {
             Login
           </Link>
           <Link
-            to="/signup"
+            to="/Signup"
             style={styles.link}
             onMouseOver={(e) => (e.target.style.opacity = "0.7")}
             onMouseOut={(e) => (e.target.style.opacity = "1")}
@@ -116,13 +116,13 @@ const styles = {
 
       {/* Hero Section */}
       <main style={styles.hero}>
-        <h2 style={styles.title}>Collaborate. Create. Connect.</h2>
+        <h2 style={styles.title}>Guidance System.</h2>
         <p style={styles.subtitle}>
-          Build amazing things together — share ideas, organize projects, and boost productivity in one platform designed for teamwork.
+          You have brains in your head. You have feet in your shoes. You can steer yourself any direction you choose.
         </p>
         <div style={styles.buttons}>
           <Link
-            to="/signup"
+            to="/Login"
             style={{ ...styles.btn, ...styles.primary }}
             onMouseOver={(e) => (e.target.style.backgroundColor = "#f4f4f4")}
             onMouseOut={(e) => (e.target.style.backgroundColor = "white")}
