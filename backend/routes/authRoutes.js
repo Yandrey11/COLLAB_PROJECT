@@ -1,63 +1,54 @@
+// routes/authRoutes.js
 import express from "express";
-import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
 import User from "../models/User.js";
+import dotenv from "dotenv";
 
+dotenv.config();
 const router = express.Router();
 
-// POST /api/signup
+// ===============================
+// 🧍‍♂️ SIGNUP
+// ===============================
 router.post("/signup", async (req, res) => {
-  const { name, email, password } = req.body;
-
   try {
-    // Check if user exists
+    const { name, email, password } = req.body;
+
     const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ message: "User already exists" });
-    }
+    if (existingUser)
+      return res.status(400).json({ message: "Email already in use" });
 
-    // Hash password
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    const newUser = new User({ name, email, password }); // password will hash via Mongoose pre-save
+    await newUser.save();
 
-    // Save user
-    const user = new User({ name, email, password: hashedPassword });
-    await user.save();
-
-    res.status(201).json({ message: "User created successfully" });
-  } catch (error) {
-    console.error(error);
+    res.json({ message: "Signup successful" });
+  } catch (err) {
+    console.error("Error in signup:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
 
-// POST /api/login
+// ===============================
+// 🔐 LOGIN
+// ===============================
 router.post("/login", async (req, res) => {
-  const { email, password } = req.body;
-
   try {
-    // Check if user exists
+    const { email, password } = req.body;
+    console.log("🟢 Login request:", { email });
+
     const user = await User.findOne({ email });
     if (!user) return res.status(400).json({ message: "Invalid credentials" });
 
-    // Check password
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
+    const isMatch = await user.matchPassword(password);
+    if (!isMatch)
+      return res.status(400).json({ message: "Invalid credentials" });
 
-    // Generate JWT
-    const token = jwt.sign(
-      { id: user._id },
-      process.env.JWT_SECRET || "secretkey",
-      { expiresIn: "1h" }
-    );
-
-    res.json({
-      message: "Login successful",
-      token,
-      user: { name: user.name, email: user.email },
+    console.log("✅ Login successful for:", email);
+    res.status(200).json({
+      token: "dummy-token", // replace with JWT later if needed
+      user: { id: user._id, name: user.name, email: user.email },
     });
-  } catch (error) {
-    console.error(error);
+  } catch (err) {
+    console.error("💥 Login error:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
