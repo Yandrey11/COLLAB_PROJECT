@@ -17,8 +17,12 @@ const userSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: [true, "Password is required"],
       minlength: [6, "Password must be at least 6 characters long"],
+      // ❌ remove required so Google users can skip password
+    },
+    googleId: {
+      type: String,
+      default: null, // ✅ identify Google-based accounts
     },
     resetPasswordCode: {
       type: String,
@@ -34,7 +38,7 @@ const userSchema = new mongoose.Schema(
 
 // ✅ Hash password before saving (only if modified or new)
 userSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) return next();
+  if (!this.isModified("password") || !this.password) return next();
   try {
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
@@ -47,6 +51,7 @@ userSchema.pre("save", async function (next) {
 // ✅ Compare entered password with hashed password
 userSchema.methods.matchPassword = async function (enteredPassword) {
   try {
+    if (!this.password) return false; // Google users won’t have one
     return await bcrypt.compare(enteredPassword, this.password);
   } catch (error) {
     console.error("Error comparing passwords:", error);
