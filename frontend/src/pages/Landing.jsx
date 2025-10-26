@@ -114,39 +114,53 @@ const styles = {
         </nav>
       </header>
 
-      {/* Hero Section */}
-      <main style={styles.hero}>
-        <h2 style={styles.title}>Guidance System.</h2>
-        <p style={styles.subtitle}>
-          You have brains in your head. You have feet in your shoes. You can steer yourself any direction you choose.
-        </p>
-        <div style={styles.buttons}>
-          <Link
-            to="/Login"
-            style={{ ...styles.btn, ...styles.primary }}
-            onMouseOver={(e) => (e.target.style.backgroundColor = "#f4f4f4")}
-            onMouseOut={(e) => (e.target.style.backgroundColor = "white")}
-          >
-            Get Started
-          </Link>
-          <Link
-            to="/login"
-            style={{ ...styles.btn, ...styles.secondary }}
-            onMouseOver={(e) => {
-              e.target.style.backgroundColor = "white";
-              e.target.style.color = "#4f46e5";
-            }}
-            onMouseOut={(e) => {
-              e.target.style.backgroundColor = "transparent";
-              e.target.style.color = "white";
-            }}
-          >
-            Log In
-          </Link>
-        </div>
-      </main>
+  
+        <main style={styles.hero}>
+          <h2 style={styles.title}>Guidance System.</h2>
+          <p style={styles.subtitle}>
+            You have brains in your head. You have feet in your shoes. You can steer yourself any direction you choose.
+          </p>
+          <div style={styles.buttons}>
+            <Link
+          to="/Login"
+          style={{ ...styles.btn, ...styles.primary }}
+          onMouseOver={(e) => (e.target.style.backgroundColor = "#f4f4f4")}
+          onMouseOut={(e) => (e.target.style.backgroundColor = "white")}
+            >
+          Get Started
+            </Link>
+            <Link
+          to="/login"
+          style={{ ...styles.btn, ...styles.secondary }}
+          onMouseOver={(e) => {
+            e.target.style.backgroundColor = "white";
+            e.target.style.color = "#4f46e5";
+          }}
+          onMouseOut={(e) => {
+            e.target.style.backgroundColor = "transparent";
+            e.target.style.color = "white";
+          }}
+            >
+          Log In
+            </Link>
+            <Link
+          to="/adminlogin"
+          style={{ ...styles.btn, ...styles.secondary }}
+          onMouseOver={(e) => {
+            e.target.style.backgroundColor = "white";
+            e.target.style.color = "#4f46e5";
+          }}
+          onMouseOut={(e) => {
+            e.target.style.backgroundColor = "transparent";
+            e.target.style.color = "white";
+          }}
+            >
+          Admin Login
+            </Link>
+          </div>
+        </main>
 
-      {/* Footer */}
+        {/* Footer */}
       <footer style={styles.footer}>
         © {new Date().getFullYear()} Collab Project. All rights reserved.
       </footer>
