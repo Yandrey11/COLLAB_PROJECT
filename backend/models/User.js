@@ -3,60 +3,33 @@ import bcrypt from "bcryptjs";
 
 const userSchema = new mongoose.Schema(
   {
-    name: {
+    name: { type: String, required: true },
+    email: { type: String, required: true, unique: true },
+    password: { type: String, required: true },
+    role: {
       type: String,
-      required: [true, "Name is required"],
-      trim: true,
+      enum: ["user", "counselor", "admin"],
+      default: "user",
     },
-    email: {
-      type: String,
-      required: [true, "Email is required"],
-      unique: true,
-      lowercase: true,
-      trim: true,
-    },
-    password: {
-      type: String,
-      minlength: [6, "Password must be at least 6 characters long"],
-      // ❌ remove required so Google users can skip password
-    },
-    googleId: {
-      type: String,
-      default: null, // ✅ identify Google-based accounts
-    },
-    resetPasswordCode: {
-      type: String,
-      default: null,
-    },
-    resetPasswordExpires: {
-      type: Date,
-      default: null,
-    },
+    googleId: { type: String },
+    resetPasswordCode: { type: String },
+    resetPasswordExpires: { type: Date },
   },
   { timestamps: true }
 );
 
-// ✅ Hash password before saving (only if modified or new)
+// ✅ Hash password ONLY if modified
 userSchema.pre("save", async function (next) {
-  if (!this.isModified("password") || !this.password) return next();
-  try {
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
-    next();
-  } catch (error) {
-    next(error);
-  }
+  if (!this.isModified("password")) return next();
+  console.log("🔒 Hashing password for:", this.email, "password:", this.password);
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
+  next();
 });
 
-// ✅ Compare entered password with hashed password
+// ✅ Compare password for login
 userSchema.methods.matchPassword = async function (enteredPassword) {
-  try {
-    if (!this.password) return false; // Google users won’t have one
-    return await bcrypt.compare(enteredPassword, this.password);
-  } catch (error) {
-    console.error("Error comparing passwords:", error);
-    return false;
-  }
+  return await bcrypt.compare(enteredPassword, this.password);
 };
 
 const User = mongoose.model("User", userSchema);
