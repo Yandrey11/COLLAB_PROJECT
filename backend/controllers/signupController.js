@@ -1,27 +1,43 @@
 import User from "../models/User.js";
-import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
 export const signup = async (req, res) => {
-  const { name, email, password } = req.body;
-
   try {
+    const { name, email, password } = req.body;
+
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
+
+    // Check if email already exists
     const existingUser = await User.findOne({ email });
-    if (existingUser)
-      return res.status(400).json({ message: "User already exists" });
+    if (existingUser) {
+      return res.status(400).json({ message: "Email already registered" });
+    }
 
-    const hashedPassword = await bcrypt.hash(password, 12);
-    const user = await User.create({ name, email, password: hashedPassword });
+    // ✅ Create new user (password automatically hashed via pre-save)
+const newUser = new User({ name, email, password });
+await newUser.save();
 
+    // Generate JWT token
     const token = jwt.sign(
-      { id: user._id, name: user.name },
+      { id: newUser._id, role: newUser.role },
       process.env.JWT_SECRET,
-      { expiresIn: "1h" }
+      { expiresIn: "1d" }
     );
 
-    res.status(201).json({ message: "Signup successful", result: user, token });
+    res.status(201).json({
+      message: "Signup successful",
+      token,
+      user: {
+        id: newUser._id,
+        name: newUser.name,
+        email: newUser.email,
+        role: newUser.role,
+      },
+    });
   } catch (error) {
-    console.error("Signup Error:", error);
-    res.status(500).json({ message: "Something went wrong" });
+    console.error("❌ Signup Error:", error);
+    res.status(500).json({ message: "Server error during signup" });
   }
 };
