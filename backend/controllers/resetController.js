@@ -1,5 +1,5 @@
 import nodemailer from "nodemailer";
-import User from "../models/User.js";
+import User from "../models/user.js";
 
 // ✅ Forgot Password — send code to user's email
 export const forgotPassword = async (req, res) => {
