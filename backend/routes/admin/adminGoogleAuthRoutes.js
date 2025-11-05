@@ -1,9 +1,6 @@
 import express from "express";
 import passport from "passport";
-import {
-  adminGoogleAuthSuccess,
-  adminGoogleAuthFailure,
-} from "../controllers/adminGoogleAuthController.js";
+import { adminGoogleAuthSuccess, adminGoogleAuthFailure } from "../../controllers/admin/adminGoogleAuthController.js";
 
 const router = express.Router();
 
