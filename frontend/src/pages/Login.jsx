@@ -34,6 +34,10 @@ function Login() {
       alert(err.response?.data?.message || "❌ Invalid email or password");
     }
   };
+  const handleFacebookLogin = () => {
+  window.location.href = "http://localhost:5000/auth/facebook";
+};
+
   return (
     <>
       <style>{`
@@ -164,7 +168,7 @@ function Login() {
             <div className="actions">
               <a className="link" href="./forgot-password">Forgot password?</a>
             </div>
-            <button type="submit">Sign In</button>
+            <button type="submit">LOGIN</button>
 
             {/* Google login button */}
             <button
@@ -176,11 +180,15 @@ function Login() {
               }}
               aria-label="Sign in with Google"
             >
-              {/* simple text label; replace with an SVG icon if desired */}
               Sign in with Google
             </button>
+                    <button className="github" onClick={() => window.location.href = "http://localhost:5000/auth/github"}>
+                <img src="https://www.svgrepo.com/show/512317/github-142.svg" alt="github" width="20" />
+                Continue with GitHub
+              </button>
 
-            {/* New signup button below the Sign In button */}
+
+                    {/* New signup button below the Sign In button */}
             <button
               type="button"
               className="signupBtn"

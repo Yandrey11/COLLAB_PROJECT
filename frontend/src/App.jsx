@@ -9,6 +9,14 @@ import Dashboard from "./pages/Dashboard";
 
 import AdminLogin from "./pages/Admin/AdminLogin";
 import AdminDashboard from "./pages/Admin/AdminDashboard";
+import AdminSignup from "./pages/Admin/AdminSignup";
+
+import RecordsPage from "./pages/RecordsPage";
+import ReportsPage from "./pages/ReportsPage";
+
+
+
+
 function App() {
   return (
     <Router>
@@ -19,10 +27,13 @@ function App() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/records" element={<RecordsPage />} />
+        <Route path="/reports" element={<ReportsPage />} /> 
 
 
         {/* ✅ Admin routes */}
         <Route path="/AdminLogin" element={<AdminLogin />} />
+          <Route path="/adminsignup" element={<AdminSignup />} />
         <Route path="/AdminDashboard" element={<AdminDashboard />} />
       </Routes>
     </Router>
