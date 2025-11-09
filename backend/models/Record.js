@@ -1,14 +1,24 @@
-  import mongoose from "mongoose";
+import mongoose from "mongoose";
 
-  const recordSchema = new mongoose.Schema({
+const recordSchema = new mongoose.Schema(
+  {
     clientName: { type: String, required: true },
-    date: { type: Date },
-    sessionType: { type: String },
-    status: { type: String, default: "Ongoing" },
+    date: { type: Date, default: Date.now },
+    sessionType: { type: String, required: true },
+    status: {
+      type: String,
+      enum: ["Ongoing", "Completed", "Referred"],
+      default: "Ongoing",
+    },
     notes: { type: String },
     outcomes: { type: String },
     driveLink: { type: String },
-    counselor: { type: String },
-  }, { timestamps: true });
+    counselor: { type: String, required: true },
+  },
+  { timestamps: true }
+);
 
-  export default mongoose.model("Record", recordSchema);
+// ✅ Prevent OverwriteModelError when models are imported multiple times
+const Record = mongoose.models.Record || mongoose.model("Record", recordSchema);
+
+export default Record;
