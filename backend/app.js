@@ -20,7 +20,7 @@ const app = express();
 // ✅ Passport configurations (must come before routes)
 import "./config/passport.js";              // user auth (Google/local)
 import "./config/adminPassport.js";         // admin Google/local auth
-import "./config/adminGithubPassport.js";   // ✅ new GitHub admin auth
+
 
 // ✅ Core middlewares
 app.use(
@@ -67,11 +67,11 @@ import adminRefreshRoutes from "./routes/admin/adminRefreshRoutes.js";
 import adminSignupRoutes from "./routes/admin/adminSignupRoutes.js";
 import adminLoginRoutes from "./routes/admin/adminLoginRoutes.js";
 import configRoutes from "./routes/configRoutes.js";
-import githubAuthRoutes from "./routes/githubAuthRoutes.js";
+
 import recordRoutes from "./routes/recordRoutes.js";
 import googleDriveRoutes from "./routes/googleDriveRoutes.js";
 import reportRoutes from "./routes/reportRoutes.js";
-import adminGitHubAuthRoutes from "./routes/admin/adminGitHubAuthRoutes.js";
+
 import adminTokenRoutes from "./routes/admin/adminTokenRoutes.js";
 app.use("/api/admin", adminTokenRoutes);
 
@@ -85,7 +85,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/admin", adminRefreshRoutes);
 app.use("/api/admin", adminSignupRoutes);
 app.use("/auth/admin", adminGoogleAuthRoutes);
-app.use("/auth/admin", adminGitHubAuthRoutes);
+
 app.use("/api/reset", resetRoutes);
 app.use("/api/records", recordRoutes);
 app.use("/auth", googleDriveRoutes);
