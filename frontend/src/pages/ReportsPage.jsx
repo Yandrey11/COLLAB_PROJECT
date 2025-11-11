@@ -67,52 +67,243 @@ const ReportsPage = () => {
     setFilteredRecords(filtered);
   };
 
+  // ✅ Generate Document Tracking Number
+  const generateTrackingNumber = () => {
+    const timestamp = Date.now();
+    const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+    return `DOC-${timestamp}-${random}`;
+  };
+
+  // ✅ Add header and footer to each page
+  const addHeaderFooter = (doc, pageNum, totalPages, trackingNumber, reportDate) => {
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+
+    // Header
+    doc.setFillColor(102, 126, 234); // #667eea
+    doc.rect(0, 0, pageWidth, 30, 'F');
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.text("COUNSELING RECORDS REPORT", pageWidth / 2, 12, { align: 'center' });
+    
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Document Tracking: ${trackingNumber}`, 14, 22);
+    doc.text(`Date: ${reportDate}`, pageWidth - 14, 22, { align: 'right' });
+
+    // Footer with comprehensive information
+    doc.setFillColor(102, 126, 234);
+    doc.rect(0, pageHeight - 35, pageWidth, 35, 'F');
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    
+    // Footer line 1: Confidentiality notice
+    doc.text("CONFIDENTIAL - This document contains sensitive information and is protected under client confidentiality agreements.", 
+      pageWidth / 2, pageHeight - 28, { align: 'center' });
+    
+    // Footer line 2: Organization info and page number
+    doc.setFontSize(7);
+    doc.text("Counseling Services Management System", 14, pageHeight - 18);
+    doc.text(`Page ${pageNum} of ${totalPages}`, pageWidth / 2, pageHeight - 18, { align: 'center' });
+    doc.text(`Tracking: ${trackingNumber}`, pageWidth - 14, pageHeight - 18, { align: 'right' });
+    
+    // Footer line 3: Contact and disclaimer
+    doc.setFontSize(6);
+    doc.text("For inquiries, contact your system administrator. This report is generated electronically.", 
+      pageWidth / 2, pageHeight - 10, { align: 'center' });
+    
+    // Reset text color for content
+    doc.setTextColor(0, 0, 0);
+  };
+
   // ✅ Generate and download PDF
   const handleDownloadPDF = () => {
     const recordsToExport = selectedRecord ? [selectedRecord] : filteredRecords;
     if (recordsToExport.length === 0) return;
 
     const doc = new jsPDF();
+    const trackingNumber = generateTrackingNumber();
+    const reportDate = new Date().toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+    const reportDateTime = new Date().toLocaleString();
+
+    // Calculate total pages needed (ensure at least 2 pages)
+    let estimatedPages = Math.max(2, Math.ceil(recordsToExport.length / 2));
+    if (recordsToExport.length === 1) estimatedPages = 2; // Force at least 2 pages for single record
+
+    // Page 1: Cover/Summary Page
+    addHeaderFooter(doc, 1, estimatedPages, trackingNumber, reportDate);
+    
+    let finalY = 50; // Start below header (30px header)
+    const maxContentHeight = doc.internal.pageSize.getHeight() - 35 - 50; // Account for footer (35px) and bottom margin
+
+    // Title
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(18);
-    doc.text("COUNSELING RECORDS REPORT", 14, 18);
+    doc.setFontSize(20);
+    doc.text("COUNSELING RECORDS REPORT", 105, finalY, { align: 'center' });
+    finalY += 15;
+
+    // Report Information
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Report Generated: ${reportDateTime}`, 105, finalY, { align: 'center' });
+    finalY += 10;
+    doc.text(`Document Tracking Number: ${trackingNumber}`, 105, finalY, { align: 'center' });
+    finalY += 10;
+    doc.text(`Total Records: ${recordsToExport.length}`, 105, finalY, { align: 'center' });
+    finalY += 20;
+
+    // Summary Statistics
+    const completed = recordsToExport.filter(r => r.status === "Completed").length;
+    const ongoing = recordsToExport.filter(r => r.status === "Ongoing").length;
+    const referred = recordsToExport.filter(r => r.status === "Referred").length;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.text("Summary Statistics", 105, finalY, { align: 'center' });
+    finalY += 12;
+
     doc.setFontSize(11);
     doc.setFont("helvetica", "normal");
-    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 26);
+    doc.text(`Completed Sessions: ${completed}`, 105, finalY, { align: 'center' });
+    finalY += 8;
+    doc.text(`Ongoing Sessions: ${ongoing}`, 105, finalY, { align: 'center' });
+    finalY += 8;
+    doc.text(`Referred Sessions: ${referred}`, 105, finalY, { align: 'center' });
+    finalY += 20;
 
-    let finalY = 34;
+    // Date Range (if applicable)
+    if (startDate || endDate) {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.text("Date Range:", 105, finalY, { align: 'center' });
+      finalY += 8;
+      doc.setFont("helvetica", "normal");
+      const dateRange = `${startDate || 'N/A'} to ${endDate || 'N/A'}`;
+      doc.text(dateRange, 105, finalY, { align: 'center' });
+    }
+
+    // Add second page for records
+    doc.addPage();
+    addHeaderFooter(doc, 2, estimatedPages, trackingNumber, reportDate);
+    finalY = 50;
+
+    // Records Details
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.text("DETAILED RECORDS", 105, finalY, { align: 'center' });
+    finalY += 15;
 
     recordsToExport.forEach((record, idx) => {
+      // Check if we need a new page (accounting for footer height)
+      if (finalY > maxContentHeight && idx < recordsToExport.length - 1) {
+        estimatedPages++;
+        doc.addPage();
+        addHeaderFooter(doc, doc.internal.getNumberOfPages(), estimatedPages, trackingNumber, reportDate);
+        finalY = 50;
+      }
+
+      // Record separator
+      if (idx > 0) {
+        doc.setDrawColor(200, 200, 200);
+        doc.line(14, finalY - 5, 196, finalY - 5);
+        finalY += 5;
+      }
+
+      // Record header
       doc.setFontSize(14);
       doc.setFont("helvetica", "bold");
       doc.text(`Record ${idx + 1}`, 14, finalY);
-      finalY += 8;
+      finalY += 10;
+
+      // Record details
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "normal");
+      
+      const details = [
+        { label: "Client Name", value: record.clientName || "N/A" },
+        { label: "Date", value: new Date(record.date).toLocaleDateString() },
+        { label: "Status", value: record.status || "N/A" },
+        { label: "Counselor", value: record.counselor || "N/A" },
+      ];
+
+      details.forEach(detail => {
+        doc.setFont("helvetica", "bold");
+        doc.text(`${detail.label}:`, 14, finalY);
+        doc.setFont("helvetica", "normal");
+        doc.text(detail.value, 14 + 50, finalY);
+        finalY += 7;
+      });
+
+      // Notes (with word wrap)
+      doc.setFont("helvetica", "bold");
+      doc.text("Notes:", 14, finalY);
+      finalY += 7;
+      doc.setFont("helvetica", "normal");
+      const notes = record.notes || "No notes available";
+      const splitNotes = doc.splitTextToSize(notes, 180);
+      doc.text(splitNotes, 14, finalY);
+      finalY += splitNotes.length * 5 + 5;
+
+      // Outcome (with word wrap)
+      doc.setFont("helvetica", "bold");
+      doc.text("Outcome:", 14, finalY);
+      finalY += 7;
+      doc.setFont("helvetica", "normal");
+      const outcome = record.outcome || "No outcome recorded";
+      const splitOutcome = doc.splitTextToSize(outcome, 180);
+      doc.text(splitOutcome, 14, finalY);
+      finalY += splitOutcome.length * 5 + 10;
+    });
+
+    // If we only have one page of records, add additional content to ensure 2 pages
+    if (doc.internal.getNumberOfPages() < 2) {
+      doc.addPage();
+      addHeaderFooter(doc, 2, 2, trackingNumber, reportDate);
+      finalY = 50;
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(14);
+      doc.text("ADDITIONAL INFORMATION", 105, finalY, { align: 'center' });
+      finalY += 15;
 
       doc.setFontSize(11);
       doc.setFont("helvetica", "normal");
-      doc.text(`Client Name: ${record.clientName}`, 14, finalY);
-      finalY += 7;
-      doc.text(`Date: ${new Date(record.date).toLocaleDateString()}`, 14, finalY);
-      finalY += 7;
-      doc.text(`Status: ${record.status}`, 14, finalY);
-      finalY += 7;
-      doc.text(`Counselor: ${record.counselor}`, 14, finalY);
-      finalY += 7;
-      doc.text(`Notes: ${record.notes || "N/A"}`, 14, finalY);
-      finalY += 7;
-      doc.text(`Outcome: ${record.outcome || "N/A"}`, 14, finalY);
-      finalY += 12;
+      doc.text("This report contains confidential counseling session records.", 105, finalY, { align: 'center' });
+      finalY += 10;
+      doc.text("All information is protected under client confidentiality agreements.", 105, finalY, { align: 'center' });
+      finalY += 15;
 
-      // Add new page if needed
-      if (finalY > 270 && idx !== recordsToExport.length - 1) {
-        doc.addPage();
-        finalY = 18;
-      }
-    });
+      doc.setFont("helvetica", "bold");
+      doc.text("Report Metadata:", 14, finalY);
+      finalY += 10;
+      doc.setFont("helvetica", "normal");
+      doc.text(`Document ID: ${trackingNumber}`, 14, finalY);
+      finalY += 7;
+      doc.text(`Generated On: ${reportDateTime}`, 14, finalY);
+      finalY += 7;
+      doc.text(`Total Records Included: ${recordsToExport.length}`, 14, finalY);
+      finalY += 7;
+      doc.text(`Report Type: ${selectedRecord ? 'Single Record' : 'Multiple Records'}`, 14, finalY);
+    }
+
+    // Update all page numbers with correct total
+    const totalPages = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      addHeaderFooter(doc, i, totalPages, trackingNumber, reportDate);
+    }
 
     const fileName = selectedRecord
-      ? `${selectedRecord.clientName.replace(/\s+/g, '_')}_record.pdf`
-      : `counseling-records-${new Date().toISOString().split('T')[0]}.pdf`;
+      ? `${selectedRecord.clientName.replace(/\s+/g, '_')}_record_${trackingNumber}.pdf`
+      : `counseling-records_${trackingNumber}_${new Date().toISOString().split('T')[0]}.pdf`;
 
     doc.save(fileName);
   };
@@ -120,8 +311,9 @@ const ReportsPage = () => {
   return (
     <div style={{
       minHeight: "100vh",
+       width: "100vw",
       background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-      padding: "40px 20px",
+      padding: "40px 0px",
       display: "flex",
       flexDirection: "column",
       alignItems: "center"

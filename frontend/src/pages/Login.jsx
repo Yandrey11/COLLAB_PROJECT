@@ -131,6 +131,24 @@ function Login() {
           transform: scale(1.02);
           box-shadow: 0 6px 18px rgba(0,0,0,0.06);
         }
+        .backBtn {
+          background: transparent;
+          color: #666;
+          border: 1px solid #ddd;
+          padding: 8px 16px;
+          margin-bottom: 16px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          font-size: 13px;
+          font-weight: 500;
+        }
+        .backBtn:hover {
+          transform: scale(1.02);
+          background: rgba(0,0,0,0.02);
+          border-color: #999;
+        }
         @media (max-width: 420px) {
           .card { padding: 20px; width: 100%; }
         }
@@ -138,7 +156,15 @@ function Login() {
 
       <div className="page">
         <div className="card" role="main">
-          <h1>Sign In</h1>
+          <button
+            type="button"
+            className="backBtn"
+            onClick={() => navigate("/")}
+            aria-label="Go back to landing page"
+          >
+            ← Go Back
+          </button>
+          <h1>Log In</h1>
           <p>Use your account to access the dashboard</p>
           <form onSubmit={handleSubmit}>
             <input
@@ -177,18 +203,23 @@ function Login() {
               onClick={() => {
                 // Redirect to backend OAuth endpoint to start Google sign-in flow
                 window.location.href = "http://localhost:5000/auth/google";
-              }}
-              aria-label="Sign in with Google"
-            >
-              Sign in with Google
-            </button>
-                    <button className="github" onClick={() => window.location.href = "http://localhost:5000/auth/github"}>
-                <img src="https://www.svgrepo.com/show/512317/github-142.svg" alt="github" width="20" />
-                Continue with GitHub
+                }}
+                aria-label="Sign in with Google"
+              >
+                Login in with Google
               </button>
 
+              <a
+                href="http://localhost:5000/auth/github"
+                className="googleBtn"
+                aria-label="Login with GitHub"
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, textDecoration: "none" }}
+              >
+                <img src="https://www.svgrepo.com/show/512317/github-142.svg" alt="github" width="20" />
+                Login with GitHub
+              </a>
 
-                    {/* New signup button below the Sign In button */}
+              {/* New signup button below the Sign In button */}
             <button
               type="button"
               className="signupBtn"
