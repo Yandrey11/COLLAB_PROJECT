@@ -1,6 +1,5 @@
 // app.js
 
-
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
@@ -8,6 +7,7 @@ import session from "express-session";
 import passport from "passport";
 import cookieParser from "cookie-parser"; // ✅ Keep only ONE
 import connectDB from "./config/db.js";
+
 // ✅ Load environment variables
 dotenv.config();
 
@@ -20,7 +20,10 @@ const app = express();
 // ✅ Passport configurations (must come before routes)
 import "./config/passport.js";              // user auth (Google/local)
 import "./config/adminPassport.js";         // admin Google/local auth
+import "./config/passport-github.js";       // GitHub auth config (added)
 
+// github routes import (kept)
+import githubAuthRoutes from "./routes/githubAuth.js";
 
 // ✅ Core middlewares
 app.use(
@@ -85,7 +88,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/admin", adminRefreshRoutes);
 app.use("/api/admin", adminSignupRoutes);
 app.use("/auth/admin", adminGoogleAuthRoutes);
-
+app.use("/auth", githubAuthRoutes); // GitHub auth route (kept)
 app.use("/api/reset", resetRoutes);
 app.use("/api/records", recordRoutes);
 app.use("/auth", googleDriveRoutes);
@@ -104,3 +107,5 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () =>
   console.log(`🚀 Server running on http://localhost:${PORT}`)
 );
+
+export default app;
