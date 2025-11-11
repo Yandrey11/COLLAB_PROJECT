@@ -55,24 +55,34 @@ export default function AdminLogin() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap');
         * { box-sizing: border-box; }
-        body, html, #root { height: 100%; margin: 0; font-family: 'Montserrat', sans-serif; }
+        html, body, #root {
+          height: 100%;
+          width: 100%;
+          margin: 0;
+          font-family: 'Montserrat', sans-serif;
+          -webkit-font-smoothing: antialiased;
+          -moz-osx-font-smoothing: grayscale;
+          background: #111827;
+          overflow-x: hidden;
+        }
         .page {
           display: flex;
-          justify-content: center;
           align-items: center;
+          justify-content: center;
           min-height: 100vh;
-          background: #111827;
+          padding: 24px;
         }
         .card {
           background: #fff;
           border-radius: 12px;
-          padding: 40px;
-          width: 380px;
+          padding: 36px 28px;
+          width: 100%;
+          max-width: 420px;
           box-shadow: 0 10px 30px rgba(0,0,0,0.2);
           text-align: center;
         }
         h1 { color: #111827; margin-bottom: 10px; }
-        p { color: #6b7280; font-size: 14px; margin-bottom: 24px; }
+        p { color: #6b7280; font-size: 14px; margin-bottom: 18px; }
         input {
           width: 100%;
           padding: 12px;
@@ -97,32 +107,30 @@ export default function AdminLogin() {
         .primary:hover {
           background: linear-gradient(90deg, #1e40af, #1d4ed8);
         }
+        .google, .github {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          gap: 8px;
+          transition: 0.15s ease;
+          padding: 10px;
+        }
         .google {
           background: #fff;
           border: 1px solid #ddd;
           color: #444;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          gap: 8px;
-          transition: 0.2s;
         }
         .google:hover {
-          transform: scale(1.03);
-          box-shadow: 0 6px 18px rgba(0,0,0,0.1);
+          transform: translateY(-2px);
+          box-shadow: 0 6px 18px rgba(0,0,0,0.08);
         }
         .github {
           background: #24292e;
           color: #fff;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          gap: 8px;
-          transition: 0.2s;
         }
         .github:hover {
           background: #1a1e22;
-          transform: scale(1.03);
+          transform: translateY(-2px);
         }
         .signup-btn {
           background: transparent;
@@ -130,6 +138,7 @@ export default function AdminLogin() {
           font-size: 12px;
           padding: 8px;
           text-decoration: underline;
+          margin-top: 10px;
         }
         .signup-btn:hover {
           color: #1d4ed8;
@@ -140,6 +149,7 @@ export default function AdminLogin() {
           font-size: 12px;
           padding: 8px;
           text-decoration: none;
+          margin-top: 8px;
         }
         .back-btn:hover {
           color: #374151;
@@ -147,6 +157,13 @@ export default function AdminLogin() {
         .error {
           color: red;
           margin-top: 12px;
+        }
+
+        /* ensure icons/images inside buttons are aligned and responsive */
+        .google img, .github img {
+          width: 20px;
+          height: 20px;
+          display: inline-block;
         }
       `}</style>
 
@@ -193,12 +210,7 @@ export default function AdminLogin() {
             Sign in with Google
           </button>
 
-          <button className="github" onClick={handleGitHubLogin}>
-            <svg height="20" width="20" viewBox="0 0 16 16" fill="currentColor">
-              <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
-            </svg>
-            Sign in with GitHub
-          </button>
+          
 
           <button className="signup-btn" onClick={() => navigate("/adminsignup")}>
             Don't have an account? Sign up

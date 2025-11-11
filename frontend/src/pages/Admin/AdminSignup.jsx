@@ -39,8 +39,8 @@ const AdminSignup = () => {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-100 via-pink-50 to-purple-200 animate-gradient-xy">
-            <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md transform transition-all duration-500 hover:scale-[1.02] animate-fade-in-up">
+        <div className="min-h-screen w-screen flex items-center justify-center bg-gradient-to-br from-purple-100 via-pink-50 to-purple-200 px-4 py-8">
+            <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-2xl w-full max-w-md transform transition-all duration-500 hover:scale-[1.02] animate-fade-in-up">
                 {/* Header with animated gradient */}
                 <div className="mb-6 text-center">
                     <h2 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent animate-pulse-slow">
@@ -150,72 +150,6 @@ const AdminSignup = () => {
                     </a>
                 </p>
             </div>
-
-            <style jsx>{`
-                @keyframes fade-in-up {
-                    from {
-                        opacity: 0;
-                        transform: translateY(20px);
-                    }
-                    to {
-                        opacity: 1;
-                        transform: translateY(0);
-                    }
-                }
-
-                @keyframes slide-right {
-                    from {
-                        width: 0;
-                    }
-                    to {
-                        width: 5rem;
-                    }
-                }
-
-                @keyframes shake {
-                    0%, 100% { transform: translateX(0); }
-                    25% { transform: translateX(-10px); }
-                    75% { transform: translateX(10px); }
-                }
-
-                @keyframes bounce-in {
-                    0% {
-                        opacity: 0;
-                        transform: scale(0.3);
-                    }
-                    50% {
-                        transform: scale(1.05);
-                    }
-                    100% {
-                        opacity: 1;
-                        transform: scale(1);
-                    }
-                }
-
-                .animate-fade-in-up {
-                    animation: fade-in-up 0.6s ease-out;
-                }
-
-                .animate-slide-right {
-                    animation: slide-right 0.8s ease-out;
-                }
-
-                .animate-shake {
-                    animation: shake 0.5s ease-in-out;
-                }
-
-                .animate-bounce-in {
-                    animation: bounce-in 0.5s ease-out;
-                }
-
-                .animate-pulse-slow {
-                    animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-                }
-
-                .animate-fade-in {
-                    animation: fade-in-up 0.8s ease-out 0.3s both;
-                }
-            `}</style>
         </div>
     );
 };
