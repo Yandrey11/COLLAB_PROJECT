@@ -9,7 +9,12 @@ const userSchema = new mongoose.Schema(
     role: {
       type: String,
       enum: ["user", "counselor", "admin"],
-      default: "user",
+      default: "counselor",
+    },
+    accountStatus: {
+      type: String,
+      enum: ["active", "inactive"],
+      default: "active",
     },
     googleId: { type: String },
     resetPasswordCode: { type: String },
