@@ -10,6 +10,9 @@ import Dashboard from "./pages/Dashboard";
 import AdminLogin from "./pages/Admin/AdminLogin";
 import AdminDashboard from "./pages/Admin/AdminDashboard";
 import AdminSignup from "./pages/Admin/AdminSignup";
+import UserManagement from "./pages/Admin/UserManagement";
+import NotificationCenter from "./pages/Admin/NotificationCenter";
+import AdminRecordManagement from "./pages/Admin/AdminRecordManagement";
 
 import RecordsPage from "./pages/RecordsPage";
 import ReportsPage from "./pages/ReportsPage";
@@ -33,8 +36,11 @@ function App() {
 
         {/* ✅ Admin routes */}
         <Route path="/AdminLogin" element={<AdminLogin />} />
-          <Route path="/adminsignup" element={<AdminSignup />} />
+        <Route path="/adminsignup" element={<AdminSignup />} />
         <Route path="/AdminDashboard" element={<AdminDashboard />} />
+        <Route path="/admin/users" element={<UserManagement />} />
+        <Route path="/admin/notifications" element={<NotificationCenter />} />
+        <Route path="/admin/records" element={<AdminRecordManagement />} />
       </Routes>
     </Router>
   );
