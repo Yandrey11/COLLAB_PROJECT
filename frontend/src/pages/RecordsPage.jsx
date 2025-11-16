@@ -6,6 +6,35 @@ import { useNavigate } from "react-router-dom";
 const API_URL = "http://localhost:5000/api/records";
 
 const RecordsPage = () => {
+  // Add responsive styles
+  useEffect(() => {
+    const style = document.createElement("style");
+    style.textContent = `
+      @media (min-width: 768px) {
+        .desktop-table {
+          display: block !important;
+        }
+        .mobile-cards {
+          display: none !important;
+        }
+      }
+      @media (max-width: 767px) {
+        .desktop-table {
+          display: none !important;
+        }
+        .mobile-cards {
+          display: flex !important;
+        }
+        .search-filter-container {
+          grid-template-columns: 1fr !important;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
   const navigate = useNavigate();
   const [records, setRecords] = useState([]);
   const [selectedRecord, setSelectedRecord] = useState(null);
@@ -20,40 +49,81 @@ const RecordsPage = () => {
   });
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState("");
-  const [driveUploading, setDriveUploading] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-
   const [user, setUser] = useState(null);
+  const [driveMessage, setDriveMessage] = useState(null);
 
   useEffect(() => {
-    // Try to get user from different possible storage keys
-    const storedUser = localStorage.getItem("user");
-    const storedToken = localStorage.getItem("token");
+    // Always fetch fresh user info if we have a token
+    const storedToken = localStorage.getItem("token") || localStorage.getItem("authToken");
     
-    if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch (err) {
-        console.error("Error parsing user data:", err);
-      }
-    } else if (storedToken) {
-      // If only token exists, fetch user info from backend
+    if (storedToken) {
+      // Fetch fresh user info from backend to ensure we have the latest data
       fetchUserInfo();
+    } else {
+      // No token, check if there's stored user data (fallback)
+      const storedUser = localStorage.getItem("user");
+      if (storedUser) {
+        try {
+          const parsedUser = JSON.parse(storedUser);
+          // Only use stored user if it has name or email
+          if (parsedUser.name || parsedUser.email) {
+            setUser(parsedUser);
+          } else {
+            setUser(null);
+          }
+        } catch (err) {
+          console.error("Error parsing user data:", err);
+          setUser(null);
+        }
+      } else {
+        setUser(null);
+      }
     }
   }, []);
 
   const fetchUserInfo = async () => {
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("token") || localStorage.getItem("authToken");
+      if (!token) {
+        console.warn("No token found");
+        setUser(null);
+        return;
+      }
+      
       const res = await axios.get("http://localhost:5000/api/auth/me", {
         headers: { Authorization: `Bearer ${token}` }
       });
-      const userData = res.data;
-      setUser(userData);
-      localStorage.setItem("user", JSON.stringify(userData));
+      
+      // Handle different response structures
+      const userData = res.data.user || res.data;
+      
+      // Ensure we have name or email before setting user
+      if (userData && (userData.name || userData.email)) {
+        setUser(userData);
+        localStorage.setItem("user", JSON.stringify(userData));
+        
+        // Also ensure token is stored consistently
+        if (!localStorage.getItem("token") && localStorage.getItem("authToken")) {
+          localStorage.setItem("token", localStorage.getItem("authToken"));
+        }
+        if (!localStorage.getItem("authToken") && localStorage.getItem("token")) {
+          localStorage.setItem("authToken", localStorage.getItem("token"));
+        }
+      } else {
+        console.warn("User data incomplete:", userData);
+        setUser(null);
+      }
     } catch (err) {
       console.error("Error fetching user info:", err);
+      // If token is invalid, clear everything
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("authToken");
+        localStorage.removeItem("user");
+        setUser(null);
+      }
     }
   };
 
@@ -71,7 +141,38 @@ const RecordsPage = () => {
 
   useEffect(() => {
     fetchRecords();
+    
+    // Check for OAuth callback messages
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get("error") === "drive_connection_failed") {
+      setDriveMessage({ type: "error", text: "Failed to connect to Google Drive. Please try again." });
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (urlParams.get("success") === "drive_connected") {
+      setDriveMessage({ type: "success", text: "✅ Google Drive connected successfully! You can now save records with Drive links." });
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
   }, []);
+
+  // Separate effect to refresh user info if needed
+  useEffect(() => {
+    const token = localStorage.getItem("token") || localStorage.getItem("authToken");
+    if (token) {
+      // If user is missing or incomplete, fetch from backend
+      if (!user || (!user.name && !user.email)) {
+        fetchUserInfo();
+      }
+    }
+  }, [user]);
+  
+  // Auto-hide message after 5 seconds
+  useEffect(() => {
+    if (driveMessage) {
+      const timer = setTimeout(() => setDriveMessage(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [driveMessage]);
 
   const handleCreateRecord = async () => {
     if (!newRecord.clientName || !newRecord.sessionType) {
@@ -79,14 +180,54 @@ const RecordsPage = () => {
       return;
     }
 
+    // Check if user is logged in
+    const token = localStorage.getItem("token") || localStorage.getItem("authToken");
+    if (!token) {
+      alert("⚠️ Please log in to create records");
+      navigate("/login");
+      return;
+    }
+
     try {
+      setLoading(true);
+      
+      // Ensure we have fresh user info
+      let currentUser = user;
+      if (!currentUser || (!currentUser.name && !currentUser.email)) {
+        await fetchUserInfo();
+        // Get updated user from localStorage after fetch
+        const storedUser = localStorage.getItem("user");
+        if (storedUser) {
+          try {
+            currentUser = JSON.parse(storedUser);
+          } catch (e) {
+            console.error("Error parsing user:", e);
+          }
+        }
+      }
+      
+      // Get counselor name - must have name or email
+      const counselorName = currentUser?.name || currentUser?.email;
+      
+      if (!counselorName) {
+        alert("⚠️ Unable to determine counselor name. Please log in again.");
+        navigate("/login");
+        return;
+      }
+      
       const recordToSend = {
         ...newRecord,
-        counselor: user?.name || user?.email || "Unknown Counselor",
+        counselor: counselorName,
       };
 
-      const res = await axios.post(API_URL, recordToSend);
-      alert("✅ New record created successfully!");
+      const res = await axios.post(API_URL, recordToSend, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      // Refresh records to get the updated record with driveLink
+      await fetchRecords();
+      
+      alert("✅ New record created and uploaded to Google Drive successfully!");
       setNewRecord({
         clientName: "",
         date: "",
@@ -96,44 +237,27 @@ const RecordsPage = () => {
         outcomes: "",
         driveLink: "",
       });
-      setRecords([...records, res.data]);
       setShowForm(false);
     } catch (err) {
       console.error("Error creating record:", err);
       alert("❌ Failed to create record");
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleSave = async () => {
     try {
-      await axios.put(`${API_URL}/${selectedRecord._id}`, selectedRecord);
+      const token = localStorage.getItem("token") || localStorage.getItem("authToken");
+      await axios.put(`${API_URL}/${selectedRecord._id}`, selectedRecord, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
       alert("✅ Record updated successfully!");
       setSelectedRecord(null);
       fetchRecords();
     } catch (err) {
       console.error("Error updating record:", err);
       alert("❌ Failed to update record");
-    }
-  };
-
-  const handleUploadToDrive = async (recordId) => {
-    try {
-      setDriveUploading(recordId);
-      const res = await axios.post(
-        `http://localhost:5000/api/records/${recordId}/upload-drive`
-      );
-      alert(`✅ Uploaded successfully!\nGoogle Drive link: ${res.data.driveLink}`);
-      fetchRecords();
-    } catch (err) {
-      console.error("Upload error:", err);
-      const message = err.response?.data?.error || err.message;
-      if (message.includes("Google Drive not connected")) {
-        if (window.confirm("Google Drive not connected. Connect now?")) {
-          window.open("http://localhost:5000/auth/drive", "_blank");
-        }
-      }
-    } finally {
-      setDriveUploading(null);
     }
   };
 
@@ -148,141 +272,220 @@ const RecordsPage = () => {
   return (
     <div
       style={{
-        minHeight: "100vh",
         width: "100vw",
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        background: "linear-gradient(135deg, #eef2ff, #c7d2fe)",
+        fontFamily: "'Montserrat', sans-serif",
+        padding: "40px 16px",
+        gap: 20,
         boxSizing: "border-box",
-        overflowX: "hidden",
-        background: "linear-gradient(to bottom right, #1a1a2e, #16213e, #0f3460)",
-        color: "white",
       }}
     >
       <div
         style={{
-          padding: "1.5rem",
-          maxWidth: "80rem",
+          maxWidth: 1200,
           width: "100%",
-          margin: "0 auto",
-          boxSizing: "border-box",
+            display: "flex",
+          flexDirection: "column",
+          gap: 20,
         }}
       >
-        {/* Back Button */}
-        <motion.button
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          whileHover={{ scale: 1.05, x: -5 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() => navigate("/dashboard")}
-          style={{
-            background: "rgba(55, 65, 81, 0.5)",
-            color: "white",
-            padding: "0.5rem 1rem",
-            borderRadius: "0.5rem",
-            border: "1px solid #4b5563",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            gap: "0.5rem",
-            marginBottom: "1.5rem",
-            transition: "all 0.3s",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = "rgba(75, 85, 99, 0.5)";
-            e.currentTarget.style.borderColor = "#60a5fa";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = "rgba(55, 65, 81, 0.5)";
-            e.currentTarget.style.borderColor = "#4b5563";
-          }}
-        >
-          <span>←</span>
-          <span>Back to Dashboard</span>
-        </motion.button>
-
-        {/* Header */}
+        {/* Header Card */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
+          style={{
+            background: "#fff",
+            borderRadius: 16,
+            padding: 24,
+            boxShadow: "0 10px 25px rgba(0,0,0,0.06)",
+          }}
         >
-          <h1
-            style={{
-              fontSize: "2.35rem",
-              fontWeight: "bold",
-              marginBottom: "0.5rem",
-              background:
-                "linear-gradient(to right, #60a5fa, #a78bfa)",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-              backgroundClip: "text",
-            }}
-          >
-            Counseling Records
-          </h1>
           <div
             style={{
-              color: "#9ca3af",
-              fontSize: "0.875rem",
-              marginBottom: "1.5rem",
               display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
+              flexDirection: "column",
+              gap: 12,
             }}
           >
-            <span>Counselor:</span>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+                flexWrap: "wrap",
+                gap: 16,
+              }}
+            >
+              <div style={{ flex: 1, minWidth: 200 }}>
+                <h1 style={{ color: "#111827", margin: 0, fontSize: "clamp(1.5rem, 4vw, 2rem)" }}>
+            Counseling Records
+          </h1>
+                <p style={{ color: "#6b7280", marginTop: 6, fontSize: 14 }}>
+                  Manage and track all counseling session records, notes, and outcomes.
+                </p>
+              </div>
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => navigate("/dashboard")}
+                style={{
+                  padding: "10px 16px",
+                  borderRadius: 10,
+                  border: "1px solid #e6e9ef",
+                  background: "#fff",
+                  cursor: "pointer",
+                  color: "#111827",
+                  fontWeight: 600,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <span>←</span>
+                <span>Back to Dashboard</span>
+              </motion.button>
+            </div>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+                gap: 8,
+                flexWrap: "wrap",
+            }}
+          >
+              <span style={{ fontSize: 13, color: "#6b7280" }}>Counselor:</span>
             <span
               style={{
-                fontWeight: "600",
-                color: "#60a5fa",
-                padding: "0.25rem 0.75rem",
-                backgroundColor: "rgba(59, 130, 246, 0.1)",
-                borderRadius: "9999px",
-                border: "1px solid rgba(59, 130, 246, 0.2)",
+                  fontWeight: 600,
+                  color: user ? "#4f46e5" : "#ef4444",
+                  padding: "6px 12px",
+                  backgroundColor: user ? "rgba(79, 70, 229, 0.1)" : "rgba(239, 68, 68, 0.1)",
+                  borderRadius: 8,
+                  fontSize: 13,
               }}
             >
               {user?.name || user?.email || "Not logged in"}
             </span>
+            </div>
           </div>
         </motion.div>
 
-        {/* Create New Record Button */}
+        {/* Drive Connection Message */}
+        <AnimatePresence>
+          {driveMessage && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              style={{
+                background: driveMessage.type === "success" 
+                  ? "linear-gradient(90deg, #10b981, #059669)" 
+                  : "linear-gradient(90deg, #ef4444, #dc2626)",
+                color: "white",
+                padding: "12px 20px",
+                borderRadius: 10,
+                boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 12,
+              }}
+            >
+              <span style={{ fontSize: 14, fontWeight: 500 }}>
+                {driveMessage.text}
+              </span>
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => setDriveMessage(null)}
+                style={{
+                  background: "rgba(255, 255, 255, 0.2)",
+                  border: "none",
+                  color: "white",
+                  cursor: "pointer",
+                  borderRadius: "50%",
+                  width: 24,
+                  height: 24,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 16,
+                  fontWeight: 600,
+                  padding: 0,
+                }}
+              >
+                ×
+              </motion.button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Action Buttons */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.2 }}
-          style={{ marginBottom: "2rem" }}
+          style={{
+            display: "flex",
+            gap: 12,
+            flexWrap: "wrap",
+          }}
         >
-          <button
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             onClick={() => setShowForm(!showForm)}
             style={{
-              background: "linear-gradient(to right, #2563eb, #9333ea)",
+              background: "linear-gradient(90deg, #06b6d4, #3b82f6)",
               color: "white",
-              padding: "0.75rem 1.5rem",
-              borderRadius: "0.5rem",
-              boxShadow:
-                "0 10px 15px -3px rgba(0, 0, 0, 0.1)",
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
+              padding: "12px 20px",
+              borderRadius: 10,
               border: "none",
               cursor: "pointer",
-              transition: "all 0.3s",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background =
-                "linear-gradient(to right, #1d4ed8, #7e22ce)";
-              e.currentTarget.style.transform = "scale(1.05)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background =
-                "linear-gradient(to right, #2563eb, #9333ea)";
-              e.currentTarget.style.transform = "scale(1)";
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              fontWeight: 600,
+              fontSize: 14,
+              boxShadow: "0 4px 12px rgba(6, 182, 212, 0.3)",
             }}
           >
-            <span style={{ fontSize: "1.25rem" }}>
+            <span style={{ fontSize: "18px" }}>
               {showForm ? "−" : "+"}
             </span>
             {showForm ? "Close Form" : "Create New Record"}
-          </button>
+          </motion.button>
+          
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => {
+              window.location.href = "http://localhost:5000/auth/drive";
+            }}
+            style={{
+              background: "linear-gradient(90deg, #10b981, #059669)",
+              color: "white",
+              padding: "12px 20px",
+              borderRadius: 10,
+              border: "none",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              fontWeight: 600,
+              fontSize: 14,
+              boxShadow: "0 4px 12px rgba(16, 185, 129, 0.3)",
+            }}
+          >
+            <span style={{ fontSize: "18px" }}>☁️</span>
+            Connect Google Drive
+          </motion.button>
         </motion.div>
 
         {/* New Record Form */}
@@ -293,54 +496,50 @@ const RecordsPage = () => {
               animate={{ opacity: 1, height: "auto", scale: 1 }}
               exit={{ opacity: 0, height: 0, scale: 0.95 }}
               transition={{ duration: 0.3 }}
-              style={{ overflow: "hidden", marginBottom: "2rem" }}
+              style={{ overflow: "hidden" }}
             >
               <div
                 style={{
-                  border: "1px solid #374151",
-                  borderRadius: "0.75rem",
-                  padding: "1.5rem",
-                  boxShadow:
-                    "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
-                  background:
-                    "linear-gradient(to bottom right, #1f2937, #111827)",
-                  backdropFilter: "blur(4px)",
+                  background: "#fff",
+                  borderRadius: 16,
+                  padding: 24,
+                  boxShadow: "0 10px 25px rgba(0,0,0,0.06)",
                 }}
               >
                 <h2
                   style={{
-                    fontSize: "1.5rem",
-                    fontWeight: "600",
-                    marginBottom: "1.25rem",
-                    color: "white",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.5rem",
+                    fontSize: "1.25rem",
+                    fontWeight: 600,
+                    marginBottom: 20,
+                    color: "#111827",
                   }}
                 >
-                  <span
-                    style={{
-                      width: "0.25rem",
-                      height: "1.5rem",
-                      background: "#3b82f6",
-                      borderRadius: "0.125rem",
-                    }}
-                  ></span>
                   Create New Record
                 </h2>
 
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns:
-                      "repeat(auto-fit, minmax(300px, 1fr))",
-                    gap: "1rem",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
+                    gap: 16,
+                    marginBottom: 16,
                   }}
                 >
-                  <motion.input
-                    whileFocus={{ scale: 1.02 }}
+                  <div>
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: 13,
+                        fontWeight: 500,
+                        marginBottom: 6,
+                        color: "#374151",
+                      }}
+                    >
+                      Client Name *
+                    </label>
+                    <input
                     type="text"
-                    placeholder="Client Name"
+                      placeholder="Enter client name"
                     value={newRecord.clientName}
                     onChange={(e) =>
                       setNewRecord({
@@ -349,52 +548,80 @@ const RecordsPage = () => {
                       })
                     }
                     style={{
-                      border: "1px solid #4b5563",
-                      background: "rgba(55, 65, 81, 0.5)",
-                      padding: "0.75rem",
-                      borderRadius: "0.5rem",
-                      color: "white",
-                      transition: "all 0.3s",
+                        width: "100%",
+                        border: "1px solid #e6e9ef",
+                        background: "#fff",
+                        padding: "10px 12px",
+                        borderRadius: 10,
+                        color: "#111827",
+                        fontSize: 14,
+                        transition: "all 0.2s",
+                        boxSizing: "border-box",
                     }}
                     onFocus={(e) => {
-                      e.currentTarget.style.outline =
-                        "2px solid #3b82f6";
-                      e.currentTarget.style.borderColor =
-                        "transparent";
+                        e.currentTarget.style.outline = "2px solid #4f46e5";
+                        e.currentTarget.style.outlineOffset = "2px";
+                        e.currentTarget.style.borderColor = "#4f46e5";
                     }}
                     onBlur={(e) => {
                       e.currentTarget.style.outline = "none";
-                      e.currentTarget.style.borderColor = "#4b5563";
-                    }}
-                  />
-                  <motion.input
-                    whileFocus={{ scale: 1.02 }}
+                        e.currentTarget.style.borderColor = "#e6e9ef";
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: 13,
+                        fontWeight: 500,
+                        marginBottom: 6,
+                        color: "#374151",
+                      }}
+                    >
+                      Date
+                    </label>
+                    <input
                     type="date"
                     value={newRecord.date}
                     onChange={(e) =>
                       setNewRecord({ ...newRecord, date: e.target.value })
                     }
                     style={{
-                      border: "1px solid #4b5563",
-                      background: "rgba(55, 65, 81, 0.5)",
-                      padding: "0.75rem",
-                      borderRadius: "0.5rem",
-                      color: "white",
-                      transition: "all 0.3s",
+                        width: "100%",
+                        border: "1px solid #e6e9ef",
+                        background: "#fff",
+                        padding: "10px 12px",
+                        borderRadius: 10,
+                        color: "#111827",
+                        fontSize: 14,
+                        transition: "all 0.2s",
+                        boxSizing: "border-box",
                     }}
                     onFocus={(e) => {
-                      e.currentTarget.style.outline =
-                        "2px solid #3b82f6";
-                      e.currentTarget.style.borderColor =
-                        "transparent";
+                        e.currentTarget.style.outline = "2px solid #4f46e5";
+                        e.currentTarget.style.outlineOffset = "2px";
+                        e.currentTarget.style.borderColor = "#4f46e5";
                     }}
                     onBlur={(e) => {
                       e.currentTarget.style.outline = "none";
-                      e.currentTarget.style.borderColor = "#4b5563";
-                    }}
-                  />
-                  <motion.select
-                    whileFocus={{ scale: 1.02 }}
+                        e.currentTarget.style.borderColor = "#e6e9ef";
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: 13,
+                        fontWeight: 500,
+                        marginBottom: 6,
+                        color: "#374151",
+                      }}
+                    >
+                      Session Type *
+                    </label>
+                    <select
                     value={newRecord.sessionType}
                     onChange={(e) =>
                       setNewRecord({
@@ -403,22 +630,25 @@ const RecordsPage = () => {
                       })
                     }
                     style={{
-                      border: "1px solid #4b5563",
-                      background: "rgba(55, 65, 81, 0.5)",
-                      padding: "0.75rem",
-                      borderRadius: "0.5rem",
-                      color: "white",
-                      transition: "all 0.3s",
+                        width: "100%",
+                        border: "1px solid #e6e9ef",
+                        background: "#fff",
+                        padding: "10px 12px",
+                        borderRadius: 10,
+                        color: "#111827",
+                        fontSize: 14,
+                        transition: "all 0.2s",
+                        boxSizing: "border-box",
+                        cursor: "pointer",
                     }}
                     onFocus={(e) => {
-                      e.currentTarget.style.outline =
-                        "2px solid #3b82f6";
-                      e.currentTarget.style.borderColor =
-                        "transparent";
+                        e.currentTarget.style.outline = "2px solid #4f46e5";
+                        e.currentTarget.style.outlineOffset = "2px";
+                        e.currentTarget.style.borderColor = "#4f46e5";
                     }}
                     onBlur={(e) => {
                       e.currentTarget.style.outline = "none";
-                      e.currentTarget.style.borderColor = "#4b5563";
+                        e.currentTarget.style.borderColor = "#e6e9ef";
                     }}
                   >
                     <option value="">Select Session Type</option>
@@ -426,119 +656,180 @@ const RecordsPage = () => {
                     <option value="Group">Group</option>
                     <option value="Career">Career</option>
                     <option value="Academic">Academic</option>
-                  </motion.select>
-                  <motion.select
-                    whileFocus={{ scale: 1.02 }}
+                    </select>
+                  </div>
+                  <div>
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: 13,
+                        fontWeight: 500,
+                        marginBottom: 6,
+                        color: "#374151",
+                      }}
+                    >
+                      Status
+                    </label>
+                    <select
                     value={newRecord.status}
                     onChange={(e) =>
                       setNewRecord({ ...newRecord, status: e.target.value })
                     }
                     style={{
-                      border: "1px solid #4b5563",
-                      background: "rgba(55, 65, 81, 0.5)",
-                      padding: "0.75rem",
-                      borderRadius: "0.5rem",
-                      color: "white",
-                      transition: "all 0.3s",
+                        width: "100%",
+                        border: "1px solid #e6e9ef",
+                        background: "#fff",
+                        padding: "10px 12px",
+                        borderRadius: 10,
+                        color: "#111827",
+                        fontSize: 14,
+                        transition: "all 0.2s",
+                        boxSizing: "border-box",
+                        cursor: "pointer",
                     }}
                     onFocus={(e) => {
-                      e.currentTarget.style.outline =
-                        "2px solid #3b82f6";
-                      e.currentTarget.style.borderColor =
-                        "transparent";
+                        e.currentTarget.style.outline = "2px solid #4f46e5";
+                        e.currentTarget.style.outlineOffset = "2px";
+                        e.currentTarget.style.borderColor = "#4f46e5";
                     }}
                     onBlur={(e) => {
                       e.currentTarget.style.outline = "none";
-                      e.currentTarget.style.borderColor = "#4b5563";
+                        e.currentTarget.style.borderColor = "#e6e9ef";
                     }}
                   >
                     <option value="Ongoing">Ongoing</option>
                     <option value="Completed">Completed</option>
                     <option value="Referred">Referred</option>
-                  </motion.select>
+                    </select>
+                  </div>
                 </div>
 
-                <motion.textarea
-                  whileFocus={{ scale: 1.01 }}
-                  placeholder="Session Notes"
+                <div style={{ marginBottom: 16 }}>
+                  <label
+                    style={{
+                      display: "block",
+                      fontSize: 13,
+                      fontWeight: 500,
+                      marginBottom: 6,
+                      color: "#374151",
+                    }}
+                  >
+                    Session Notes
+                  </label>
+                  <textarea
+                    placeholder="Enter session notes..."
                   value={newRecord.notes}
                   onChange={(e) =>
                     setNewRecord({ ...newRecord, notes: e.target.value })
                   }
                   rows="3"
                   style={{
-                    border: "1px solid #4b5563",
-                    background: "rgba(55, 65, 81, 0.5)",
-                    padding: "0.75rem",
-                    borderRadius: "0.5rem",
                     width: "100%",
-                    marginTop: "1rem",
-                    color: "white",
-                    transition: "all 0.3s",
+                      border: "1px solid #e6e9ef",
+                      background: "#fff",
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      color: "#111827",
+                      fontSize: 14,
+                      transition: "all 0.2s",
+                      boxSizing: "border-box",
+                      resize: "vertical",
+                      fontFamily: "inherit",
                   }}
                   onFocus={(e) => {
-                    e.currentTarget.style.outline =
-                      "2px solid #3b82f6";
-                    e.currentTarget.style.borderColor =
-                      "transparent";
+                      e.currentTarget.style.outline = "2px solid #4f46e5";
+                      e.currentTarget.style.outlineOffset = "2px";
+                      e.currentTarget.style.borderColor = "#4f46e5";
                   }}
                   onBlur={(e) => {
                     e.currentTarget.style.outline = "none";
-                    e.currentTarget.style.borderColor = "#4b5563";
-                  }}
-                ></motion.textarea>
+                      e.currentTarget.style.borderColor = "#e6e9ef";
+                    }}
+                  />
+                </div>
 
-                <motion.textarea
-                  whileFocus={{ scale: 1.01 }}
-                  placeholder="Outcomes"
+                <div style={{ marginBottom: 20 }}>
+                  <label
+                    style={{
+                      display: "block",
+                      fontSize: 13,
+                      fontWeight: 500,
+                      marginBottom: 6,
+                      color: "#374151",
+                    }}
+                  >
+                    Outcomes
+                  </label>
+                  <textarea
+                    placeholder="Enter outcomes..."
                   value={newRecord.outcomes}
                   onChange={(e) =>
                     setNewRecord({ ...newRecord, outcomes: e.target.value })
                   }
                   rows="3"
                   style={{
-                    border: "1px solid #4b5563",
-                    background: "rgba(55, 65, 81, 0.5)",
-                    padding: "0.75rem",
-                    borderRadius: "0.5rem",
                     width: "100%",
-                    marginTop: "1rem",
-                    color: "white",
-                    transition: "all 0.3s",
+                      border: "1px solid #e6e9ef",
+                      background: "#fff",
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      color: "#111827",
+                      fontSize: 14,
+                      transition: "all 0.2s",
+                      boxSizing: "border-box",
+                      resize: "vertical",
+                      fontFamily: "inherit",
                   }}
                   onFocus={(e) => {
-                    e.currentTarget.style.outline =
-                      "2px solid #3b82f6";
-                    e.currentTarget.style.borderColor =
-                      "transparent";
+                      e.currentTarget.style.outline = "2px solid #4f46e5";
+                      e.currentTarget.style.outlineOffset = "2px";
+                      e.currentTarget.style.borderColor = "#4f46e5";
                   }}
                   onBlur={(e) => {
                     e.currentTarget.style.outline = "none";
-                    e.currentTarget.style.borderColor = "#4b5563";
+                      e.currentTarget.style.borderColor = "#e6e9ef";
                   }}
-                ></motion.textarea>
+                  />
+                </div>
 
                 <div
                   style={{
                     display: "flex",
                     justifyContent: "flex-end",
-                    marginTop: "1.25rem",
+                    gap: 12,
                   }}
                 >
                   <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => setShowForm(false)}
+                    style={{
+                      padding: "10px 20px",
+                      borderRadius: 10,
+                      border: "1px solid #e6e9ef",
+                      background: "#fff",
+                      cursor: "pointer",
+                      color: "#111827",
+                      fontWeight: 600,
+                      fontSize: 14,
+                    }}
+                  >
+                    Cancel
+                  </motion.button>
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={handleCreateRecord}
                     style={{
-                      background:
-                        "linear-gradient(to right, #2563eb, #9333ea)",
+                      background: "linear-gradient(90deg, #06b6d4, #3b82f6)",
                       color: "white",
-                      padding: "0.5rem 1.5rem",
-                      borderRadius: "0.5rem",
-                      boxShadow:
-                        "0 10px 15px -3px rgba(0, 0, 0, 0.1)",
+                      padding: "10px 20px",
+                      borderRadius: 10,
                       border: "none",
                       cursor: "pointer",
+                      fontWeight: 600,
+                      fontSize: 14,
+                      boxShadow: "0 4px 12px rgba(6, 182, 212, 0.3)",
                     }}
                   >
                     Save Record
@@ -555,58 +846,69 @@ const RecordsPage = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
           style={{
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: "1.5rem",
-            gap: "0.75rem",
+            background: "#fff",
+            borderRadius: 16,
+            padding: 20,
+            boxShadow: "0 10px 25px rgba(0,0,0,0.06)",
           }}
         >
-          <div style={{ display: "flex", gap: "0.75rem", width: "100%" }}>
-            <motion.input
-              whileFocus={{ scale: 1.02 }}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr auto",
+              gap: 12,
+            alignItems: "center",
+          }}
+            className="search-filter-container"
+        >
+            <input
               type="text"
               placeholder="🔍 Search by client name..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={{
-                border: "1px solid #4b5563",
-                background: "rgba(31, 41, 55, 0.5)",
-                padding: "0.75rem",
-                borderRadius: "0.5rem",
-                color: "white",
-                flex: "1",
-                transition: "all 0.3s",
+                border: "1px solid #e6e9ef",
+                background: "#fff",
+                padding: "10px 12px",
+                borderRadius: 10,
+                color: "#111827",
+                fontSize: 14,
+                transition: "all 0.2s",
+                boxSizing: "border-box",
+                width: "100%",
               }}
               onFocus={(e) => {
-                e.currentTarget.style.outline = "2px solid #3b82f6";
-                e.currentTarget.style.borderColor = "transparent";
+                e.currentTarget.style.outline = "2px solid #4f46e5";
+                e.currentTarget.style.outlineOffset = "2px";
+                e.currentTarget.style.borderColor = "#4f46e5";
               }}
               onBlur={(e) => {
                 e.currentTarget.style.outline = "none";
-                e.currentTarget.style.borderColor = "#4b5563";
+                e.currentTarget.style.borderColor = "#e6e9ef";
               }}
             />
-            <motion.select
-              whileFocus={{ scale: 1.02 }}
+            <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
               style={{
-                border: "1px solid #4b5563",
-                background: "rgba(31, 41, 55, 0.5)",
-                padding: "0.75rem",
-                borderRadius: "0.5rem",
-                color: "white",
-                transition: "all 0.3s",
+                border: "1px solid #e6e9ef",
+                background: "#fff",
+                padding: "10px 12px",
+                borderRadius: 10,
+                color: "#111827",
+                fontSize: 14,
+                transition: "all 0.2s",
+                cursor: "pointer",
+                minWidth: 150,
               }}
               onFocus={(e) => {
-                e.currentTarget.style.outline = "2px solid #3b82f6";
-                e.currentTarget.style.borderColor = "transparent";
+                e.currentTarget.style.outline = "2px solid #4f46e5";
+                e.currentTarget.style.outlineOffset = "2px";
+                e.currentTarget.style.borderColor = "#4f46e5";
               }}
               onBlur={(e) => {
                 e.currentTarget.style.outline = "none";
-                e.currentTarget.style.borderColor = "#4b5563";
+                e.currentTarget.style.borderColor = "#e6e9ef";
               }}
             >
               <option value="">All Types</option>
@@ -614,23 +916,20 @@ const RecordsPage = () => {
               <option value="Group">Group</option>
               <option value="Career">Career</option>
               <option value="Academic">Academic</option>
-            </motion.select>
+            </select>
           </div>
         </motion.div>
 
-        {/* Records Table */}
+        {/* Records Display */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
           style={{
-            overflowX: "auto",
-            border: "1px solid #374151",
-            borderRadius: "0.75rem",
-            boxShadow:
-              "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
-            background: "rgba(31, 41, 55, 0.5)",
-            backdropFilter: "blur(4px)",
+            background: "#fff",
+            borderRadius: 16,
+            padding: 20,
+            boxShadow: "0 10px 25px rgba(0,0,0,0.06)",
           }}
         >
           {loading ? (
@@ -641,327 +940,462 @@ const RecordsPage = () => {
                 style={{
                   width: "3rem",
                   height: "3rem",
-                  border: "4px solid #3b82f6",
+                  border: "4px solid #4f46e5",
                   borderTopColor: "transparent",
                   borderRadius: "9999px",
                   margin: "0 auto",
                 }}
               ></motion.div>
-              <p style={{ color: "#9ca3af", marginTop: "1rem" }}>
+              <p style={{ color: "#6b7280", marginTop: "1rem", fontSize: 14 }}>
                 Loading records...
               </p>
             </div>
           ) : filteredRecords.length > 0 ? (
+            <>
+              {/* Desktop Table View */}
+              <div
+                style={{
+                  display: "none",
+                  overflowX: "auto",
+                }}
+                className="desktop-table"
+              >
             <table
               style={{
                 width: "100%",
                 borderCollapse: "collapse",
-                color: "#d1d5db",
-                tableLayout: "auto",
-                wordBreak: "break-word",
-              }}
-            >
-              <thead
-                style={{
-                  background:
-                    "linear-gradient(to right, #374151, #1f2937)",
-                  color: "#f3f4f6",
-                  borderBottom: "1px solid #4b5563",
-                }}
-              >
-                <tr>
-                  <th
+                    color: "#111827",
+                  }}
+                >
+                  <thead
                     style={{
-                      padding: "1rem",
-                      textAlign: "left",
-                      fontWeight: "600",
+                      background: "#f8fafc",
+                      borderBottom: "2px solid #e6e9ef",
                     }}
                   >
-                    Client Name
-                  </th>
-                  <th
-                    style={{
-                      padding: "1rem",
-                      textAlign: "left",
-                      fontWeight: "600",
-                    }}
-                  >
-                    Date
-                  </th>
-                  <th
-                    style={{
-                      padding: "1rem",
-                      textAlign: "left",
-                      fontWeight: "600",
-                    }}
-                  >
-                    Session Type
-                  </th>
-                  <th
-                    style={{
-                      padding: "1rem",
-                      textAlign: "left",
-                      fontWeight: "600",
-                    }}
-                  >
-                    Status
-                  </th>
-                  <th
-                    style={{
-                      padding: "1rem",
-                      textAlign: "left",
-                      fontWeight: "600",
-                    }}
-                  >
-                    Counselor
-                  </th>
-                  <th
-                    style={{
-                      padding: "1rem",
-                      textAlign: "left",
-                      fontWeight: "600",
-                    }}
-                  >
-                    Drive Link
-                  </th>
-                  <th
-                    style={{
-                      padding: "1rem",
-                      textAlign: "center",
-                      fontWeight: "600",
-                    }}
-                  >
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                <AnimatePresence>
-                  {filteredRecords.map((record, index) => (
-                    <motion.tr
-                      key={record._id}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: 20 }}
-                      transition={{ delay: index * 0.05 }}
-                      style={{
-                        borderBottom:
-                          "1px solid rgba(55, 65, 81, 0.5)",
-                        transition: "all 0.3s",
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background =
-                          "rgba(55, 65, 81, 0.5)";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = "transparent";
-                      }}
-                    >
-                      <td
+                    <tr>
+                      <th
                         style={{
-                          padding: "1rem",
-                          fontWeight: "500",
-                          wordBreak: "break-word",
+                          padding: "12px",
+                          textAlign: "left",
+                          fontWeight: 600,
+                          fontSize: 13,
+                          color: "#374151",
                         }}
                       >
-                        {record.clientName}
-                      </td>
-                      <td style={{ padding: "1rem", wordBreak: "break-word" }}>
-                        {record.date
-                          ? new Date(record.date).toLocaleDateString()
-                          : "-"}
-                      </td>
-                      <td style={{ padding: "1rem", wordBreak: "break-word" }}>
-                        <span
+                        Session #
+                      </th>
+                      <th
+                        style={{
+                          padding: "12px",
+                          textAlign: "left",
+                          fontWeight: 600,
+                          fontSize: 13,
+                          color: "#374151",
+                        }}
+                      >
+                        Client Name
+                      </th>
+                      <th
+                        style={{
+                          padding: "12px",
+                          textAlign: "left",
+                          fontWeight: 600,
+                          fontSize: 13,
+                          color: "#374151",
+                        }}
+                      >
+                        Date
+                      </th>
+                      <th
+                        style={{
+                          padding: "12px",
+                          textAlign: "left",
+                          fontWeight: 600,
+                          fontSize: 13,
+                          color: "#374151",
+                        }}
+                      >
+                        Session Type
+                      </th>
+                      <th
+                        style={{
+                          padding: "12px",
+                          textAlign: "left",
+                          fontWeight: 600,
+                          fontSize: 13,
+                          color: "#374151",
+                        }}
+                      >
+                        Status
+                      </th>
+                      <th
+                        style={{
+                          padding: "12px",
+                          textAlign: "left",
+                          fontWeight: 600,
+                          fontSize: 13,
+                          color: "#374151",
+                        }}
+                      >
+                        Counselor
+                      </th>
+                      <th
+                        style={{
+                          padding: "12px",
+                          textAlign: "left",
+                          fontWeight: 600,
+                          fontSize: 13,
+                          color: "#374151",
+                        }}
+                      >
+                        Drive Link
+                      </th>
+                      <th
+                        style={{
+                          padding: "12px",
+                          textAlign: "center",
+                          fontWeight: 600,
+                          fontSize: 13,
+                          color: "#374151",
+                        }}
+                      >
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <AnimatePresence>
+                      {filteredRecords.map((record, index) => (
+                        <motion.tr
+                          key={record._id}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ delay: index * 0.03 }}
                           style={{
-                            padding: "0.25rem 0.75rem",
-                            background: "rgba(59, 130, 246, 0.2)",
-                            color: "#60a5fa",
-                            borderRadius: "9999px",
-                            fontSize: "0.875rem",
-                            border: "1px solid rgba(59, 130, 246, 0.3)",
+                            borderBottom: "1px solid #e6e9ef",
+                            transition: "all 0.2s",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = "#f8fafc";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = "transparent";
                           }}
                         >
-                          {record.sessionType}
-                        </span>
-                      </td>
-                      <td style={{ padding: "1rem", wordBreak: "break-word" }}>
-                        <span
-                          style={{
-                            padding: "0.25rem 0.75rem",
-                            borderRadius: "9999px",
-                            fontSize: "0.875rem",
-                            border: "1px solid",
-                            ...(record.status === "Completed"
-                              ? {
-                                  background:
-                                    "rgba(34, 197, 94, 0.2)",
-                                  color: "#4ade80",
-                                  borderColor:
-                                    "rgba(34, 197, 94, 0.3)",
-                                }
-                              : record.status === "Ongoing"
-                              ? {
-                                  background:
-                                    "rgba(234, 179, 8, 0.2)",
-                                  color: "#facc15",
-                                  borderColor:
-                                    "rgba(234, 179, 8, 0.3)",
-                                }
-                              : {
-                                  background:
-                                    "rgba(168, 85, 247, 0.2)",
-                                  color: "#c084fc",
-                                  borderColor:
-                                    "rgba(168, 85, 247, 0.3)",
-                                }),
-                          }}
-                        >
-                          {record.status}
-                        </span>
-                      </td>
-                      <td style={{ padding: "1rem", wordBreak: "break-word" }}>
-                        {record.counselor}
-                      </td>
-                      <td style={{ padding: "1rem", wordBreak: "break-word" }}>
-                        {record.driveLink ? (
+                          <td
+                            style={{
+                              padding: "12px",
+                              fontWeight: 600,
+                              fontSize: 14,
+                              color: "#4f46e5",
+                            }}
+                          >
+                            #{record.sessionNumber || 1}
+                          </td>
+                          <td
+                            style={{
+                              padding: "12px",
+                              fontWeight: 500,
+                              fontSize: 14,
+                            }}
+                          >
+                            {record.clientName}
+                          </td>
+                          <td style={{ padding: "12px", fontSize: 14 }}>
+                            {record.date
+                              ? new Date(record.date).toLocaleDateString()
+                              : "-"}
+                          </td>
+                          <td style={{ padding: "12px" }}>
+                            <span
+                              style={{
+                                padding: "4px 10px",
+                                background: "rgba(79, 70, 229, 0.1)",
+                                color: "#4f46e5",
+                                borderRadius: 8,
+                                fontSize: 12,
+                                fontWeight: 600,
+                                display: "inline-block",
+                              }}
+                            >
+                              {record.sessionType}
+                            </span>
+                          </td>
+                          <td style={{ padding: "12px" }}>
+                            <span
+                              style={{
+                                padding: "4px 10px",
+                                borderRadius: 8,
+                                fontSize: 12,
+                                fontWeight: 600,
+                                display: "inline-block",
+                                ...(record.status === "Completed"
+                                  ? {
+                                      background: "rgba(16, 185, 129, 0.1)",
+                                      color: "#059669",
+                                    }
+                                  : record.status === "Ongoing"
+                                  ? {
+                                      background: "rgba(245, 158, 11, 0.1)",
+                                      color: "#d97706",
+                                    }
+                                  : {
+                                      background: "rgba(168, 85, 247, 0.1)",
+                                      color: "#9333ea",
+                                    }),
+                              }}
+                            >
+                              {record.status}
+                            </span>
+                          </td>
+                          <td style={{ padding: "12px", fontSize: 14 }}>
+                            {record.counselor && record.counselor !== "Unknown User" && record.counselor !== "Unknown Counselor"
+                              ? record.counselor
+                              : user?.name || user?.email || record.counselor || "—"}
+                          </td>
+                          <td style={{ padding: "12px" }}>
+                            {record.driveLink ? (
+                              <a
+                                href={record.driveLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{
+                                  color: "#4f46e5",
+                                  textDecoration: "none",
+                                  fontSize: 14,
+                                  fontWeight: 500,
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.textDecoration =
+                                    "underline";
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.textDecoration = "none";
+                                }}
+                              >
+                                View File
+                              </a>
+                            ) : (
+                              <span
+                                style={{
+                                  color: "#9ca3af",
+                                  fontSize: 14,
+                                  fontStyle: "italic",
+                                }}
+                              >
+                                No file
+                              </span>
+                            )}
+                          </td>
+                          <td style={{ padding: "12px" }}>
+                            <div
+                              style={{
+                                display: "flex",
+                                justifyContent: "center",
+                              }}
+                            >
+                              <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => setSelectedRecord(record)}
+                                style={{
+                                  background: "#4f46e5",
+                                  color: "white",
+                                  padding: "6px 12px",
+                                  borderRadius: 8,
+                                  border: "none",
+                                  cursor: "pointer",
+                                  fontSize: 13,
+                                  fontWeight: 600,
+                                }}
+                              >
+                                Edit
+                              </motion.button>
+                            </div>
+                          </td>
+                        </motion.tr>
+                      ))}
+                    </AnimatePresence>
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 12,
+                }}
+                className="mobile-cards"
+              >
+                <AnimatePresence>
+                  {filteredRecords.map((record, index) => (
+                    <motion.div
+                      key={record._id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ delay: index * 0.03 }}
+                      style={{
+                        background: "#fff",
+                        border: "1px solid #e6e9ef",
+                        borderRadius: 12,
+                        padding: 16,
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "flex-start",
+                          marginBottom: 12,
+                        }}
+                      >
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                            <h3
+                              style={{
+                                margin: 0,
+                                fontSize: 16,
+                                fontWeight: 600,
+                                color: "#111827",
+                              }}
+                            >
+                              {record.clientName}
+                            </h3>
+                            <span
+                              style={{
+                                padding: "2px 8px",
+                                background: "rgba(79, 70, 229, 0.1)",
+                                color: "#4f46e5",
+                                borderRadius: 6,
+                                fontSize: 11,
+                                fontWeight: 700,
+                              }}
+                            >
+                              Session #{record.sessionNumber || 1}
+                            </span>
+                          </div>
+                          <p
+                            style={{
+                              margin: 0,
+                              fontSize: 13,
+                              color: "#6b7280",
+                            }}
+                          >
+                            {record.date
+                              ? new Date(record.date).toLocaleDateString()
+                              : "No date"}
+                          </p>
+                        </div>
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                          <span
+                            style={{
+                              padding: "4px 10px",
+                              background: "rgba(79, 70, 229, 0.1)",
+                              color: "#4f46e5",
+                              borderRadius: 8,
+                              fontSize: 11,
+                              fontWeight: 600,
+                            }}
+                          >
+                            {record.sessionType}
+                          </span>
+                          <span
+                            style={{
+                              padding: "4px 10px",
+                              borderRadius: 8,
+                              fontSize: 11,
+                              fontWeight: 600,
+                              ...(record.status === "Completed"
+                                ? {
+                                    background: "rgba(16, 185, 129, 0.1)",
+                                    color: "#059669",
+                                  }
+                                : record.status === "Ongoing"
+                                ? {
+                                    background: "rgba(245, 158, 11, 0.1)",
+                                    color: "#d97706",
+                                  }
+                                : {
+                                    background: "rgba(168, 85, 247, 0.1)",
+                                    color: "#9333ea",
+                                  }),
+                            }}
+                          >
+                            {record.status}
+                          </span>
+                        </div>
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 13,
+                          color: "#6b7280",
+                          marginBottom: 12,
+                        }}
+                      >
+                        <strong>Counselor:</strong>{" "}
+                        {record.counselor && record.counselor !== "Unknown User" && record.counselor !== "Unknown Counselor"
+                          ? record.counselor
+                          : user?.name || user?.email || record.counselor || "—"}
+                      </div>
+                      {record.driveLink && (
+                        <div style={{ marginBottom: 12 }}>
                           <a
                             href={record.driveLink}
                             target="_blank"
                             rel="noopener noreferrer"
                             style={{
-                              color: "#60a5fa",
+                              color: "#4f46e5",
                               textDecoration: "none",
-                              transition: "color 0.3s",
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.color = "#93c5fd";
-                              e.currentTarget.style.textDecoration =
-                                "underline";
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.color = "#60a5fa";
-                              e.currentTarget.style.textDecoration = "none";
+                              fontSize: 13,
+                              fontWeight: 500,
                             }}
                           >
-                            View File
+                            📎 View Drive File
                           </a>
-                        ) : (
-                          <span
-                            style={{
-                              color: "#6b7280",
-                              fontStyle: "italic",
-                              wordBreak: "break-word",
-                            }}
-                          >
-                            No file
-                          </span>
-                        )}
-                      </td>
-                      <td style={{ padding: "1rem" }}>
-                        <div
+                        </div>
+                      )}
+                      <div
+                        style={{
+                          display: "flex",
+                          marginTop: 12,
+                        }}
+                      >
+                        <motion.button
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => setSelectedRecord(record)}
                           style={{
-                            display: "flex",
-                            justifyContent: "center",
-                            gap: "0.5rem",
+                            width: "100%",
+                            background: "#4f46e5",
+                            color: "white",
+                            padding: "10px",
+                            borderRadius: 8,
+                            border: "none",
+                            cursor: "pointer",
+                            fontSize: 13,
+                            fontWeight: 600,
                           }}
                         >
-                          <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={() => setSelectedRecord(record)}
-                            style={{
-                              background: "#2563eb",
-                              color: "white",
-                              padding: "0.5rem 1rem",
-                              borderRadius: "0.5rem",
-                              boxShadow:
-                                "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-                              border: "none",
-                              cursor: "pointer",
-                              transition: "all 0.3s",
-                            }}
-                            onMouseEnter={(e) =>
-                              (e.currentTarget.style.background = "#1d4ed8")
-                            }
-                            onMouseLeave={(e) =>
-                              (e.currentTarget.style.background = "#2563eb")
-                            }
-                          >
-                            Edit
-                          </motion.button>
-                          <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={() => handleUploadToDrive(record._id)}
-                            disabled={driveUploading === record._id}
-                            style={{
-                              background: "#16a34a",
-                              color: "white",
-                              padding: "0.5rem 1rem",
-                              borderRadius: "0.5rem",
-                              boxShadow:
-                                "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-                              border: "none",
-                              cursor:
-                                driveUploading === record._id
-                                  ? "not-allowed"
-                                  : "pointer",
-                              opacity: driveUploading === record._id ? 0.5 : 1,
-                              transition: "all 0.3s",
-                            }}
-                            onMouseEnter={(e) =>
-                              !e.currentTarget.disabled &&
-                              (e.currentTarget.style.background = "#15803d")
-                            }
-                            onMouseLeave={(e) =>
-                              !e.currentTarget.disabled &&
-                              (e.currentTarget.style.background = "#16a34a")
-                            }
-                          >
-                            {driveUploading === record._id ? (
-                              <span
-                                style={{
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: "0.5rem",
-                                }}
-                              >
-                                <motion.span
-                                  animate={{ rotate: 360 }}
-                                  transition={{
-                                    duration: 1,
-                                    repeat: Infinity,
-                                    ease: "linear",
-                                  }}
-                                  style={{
-                                    display: "inline-block",
-                                    width: "1rem",
-                                    height: "1rem",
-                                    border: "2px solid white",
-                                    borderTopColor: "transparent",
-                                    borderRadius: "9999px",
-                                  }}
-                                ></motion.span>
-                                Uploading...
-                              </span>
-                            ) : (
-                              "Upload"
-                            )}
-                          </motion.button>
-                        </div>
-                      </td>
-                    </motion.tr>
+                          Edit
+                        </motion.button>
+                      </div>
+                    </motion.div>
                   ))}
                 </AnimatePresence>
-              </tbody>
-            </table>
+              </div>
+            </>
           ) : (
             <div style={{ textAlign: "center", padding: "3rem 0" }}>
               <p
                 style={{
-                  color: "#9ca3af",
-                  fontSize: "1.125rem",
+                  color: "#6b7280",
+                  fontSize: 14,
                   fontStyle: "italic",
                 }}
               >
@@ -981,13 +1415,13 @@ const RecordsPage = () => {
               style={{
                 position: "fixed",
                 inset: 0,
-                background: "rgba(0, 0, 0, 0.7)",
+                background: "rgba(0, 0, 0, 0.5)",
                 backdropFilter: "blur(4px)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 zIndex: 50,
-                padding: "1rem",
+                padding: "16px",
               }}
               onClick={() => setSelectedRecord(null)}
             >
@@ -998,257 +1432,249 @@ const RecordsPage = () => {
                 transition={{ type: "spring", damping: 20 }}
                 onClick={(e) => e.stopPropagation()}
                 style={{
-                  background:
-                    "linear-gradient(to bottom right, #1f2937, #111827)",
-                  borderRadius: "0.75rem",
-                  padding: "1.5rem",
+                  background: "#fff",
+                  borderRadius: 16,
+                  padding: 24,
                   width: "100%",
-                  maxWidth: "32rem",
-                  boxShadow:
-                    "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
-                  border: "1px solid #374151",
+                  maxWidth: "500px",
+                  maxHeight: "90vh",
+                  overflowY: "auto",
+                  boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
                 }}
               >
                 <h2
                   style={{
-                    fontSize: "1.5rem",
-                    fontWeight: "600",
-                    marginBottom: "1.25rem",
-                    color: "white",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.5rem",
+                    fontSize: "1.25rem",
+                    fontWeight: 600,
+                    marginBottom: 20,
+                    color: "#111827",
                   }}
                 >
-                  <span
-                    style={{
-                      width: "0.25rem",
-                      height: "1.5rem",
-                      background: "#3b82f6",
-                      borderRadius: "0.125rem",
-                    }}
-                  ></span>
                   Edit Record — {selectedRecord.clientName}
                 </h2>
 
-                <label
-                  style={{
-                    display: "block",
-                    fontSize: "0.875rem",
-                    fontWeight: "500",
-                    marginBottom: "0.5rem",
-                    color: "#d1d5db",
-                  }}
-                >
-                  Session Type
-                </label>
-                <motion.input
-                  whileFocus={{ scale: 1.02 }}
-                  type="text"
-                  value={selectedRecord.sessionType || ""}
-                  onChange={(e) =>
-                    setSelectedRecord({
-                      ...selectedRecord,
-                      sessionType: e.target.value,
-                    })
-                  }
-                  style={{
-                    border: "1px solid #4b5563",
-                    background: "rgba(55, 65, 81, 0.5)",
-                    padding: "0.75rem",
-                    width: "100%",
-                    borderRadius: "0.5rem",
-                    marginBottom: "1rem",
-                    color: "white",
-                    transition: "all 0.3s",
-                  }}
-                  onFocus={(e) => {
-                    e.currentTarget.style.outline =
-                      "2px solid #3b82f6";
-                    e.currentTarget.style.borderColor =
-                      "transparent";
-                  }}
-                  onBlur={(e) => {
-                    e.currentTarget.style.outline = "none";
-                    e.currentTarget.style.borderColor = "#4b5563";
-                  }}
-                />
+                <div style={{ marginBottom: 16 }}>
+                  <label
+                    style={{
+                      display: "block",
+                      fontSize: 13,
+                      fontWeight: 500,
+                      marginBottom: 6,
+                      color: "#374151",
+                    }}
+                  >
+                    Session Type
+                  </label>
+                  <input
+                    type="text"
+                    value={selectedRecord.sessionType || ""}
+                    onChange={(e) =>
+                      setSelectedRecord({
+                        ...selectedRecord,
+                        sessionType: e.target.value,
+                      })
+                    }
+                    style={{
+                      width: "100%",
+                      border: "1px solid #e6e9ef",
+                      background: "#fff",
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      color: "#111827",
+                      fontSize: 14,
+                      transition: "all 0.2s",
+                      boxSizing: "border-box",
+                    }}
+                    onFocus={(e) => {
+                      e.currentTarget.style.outline = "2px solid #4f46e5";
+                      e.currentTarget.style.outlineOffset = "2px";
+                      e.currentTarget.style.borderColor = "#4f46e5";
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.outline = "none";
+                      e.currentTarget.style.borderColor = "#e6e9ef";
+                    }}
+                  />
+                </div>
 
-                <label
-                  style={{
-                    display: "block",
-                    fontSize: "0.875rem",
-                    fontWeight: "500",
-                    marginBottom: "0.5rem",
-                    color: "#d1d5db",
-                  }}
-                >
-                  Status
-                </label>
-                <motion.select
-                  whileFocus={{ scale: 1.02 }}
-                  value={selectedRecord.status}
-                  onChange={(e) =>
-                    setSelectedRecord({
-                      ...selectedRecord,
-                      status: e.target.value,
-                    })
-                  }
-                  style={{
-                    border: "1px solid #4b5563",
-                    background: "rgba(55, 65, 81, 0.5)",
-                    padding: "0.75rem",
-                    width: "100%",
-                    borderRadius: "0.5rem",
-                    marginBottom: "1rem",
-                    color: "white",
-                    transition: "all 0.3s",
-                  }}
-                  onFocus={(e) => {
-                    e.currentTarget.style.outline =
-                      "2px solid #3b82f6";
-                    e.currentTarget.style.borderColor =
-                      "transparent";
-                  }}
-                  onBlur={(e) => {
-                    e.currentTarget.style.outline = "none";
-                    e.currentTarget.style.borderColor = "#4b5563";
-                  }}
-                >
-                  <option value="Ongoing">Ongoing</option>
-                  <option value="Completed">Completed</option>
-                  <option value="Referred">Referred</option>
-                </motion.select>
+                <div style={{ marginBottom: 16 }}>
+                  <label
+                    style={{
+                      display: "block",
+                      fontSize: 13,
+                      fontWeight: 500,
+                      marginBottom: 6,
+                      color: "#374151",
+                    }}
+                  >
+                    Status
+                  </label>
+                  <select
+                    value={selectedRecord.status}
+                    onChange={(e) =>
+                      setSelectedRecord({
+                        ...selectedRecord,
+                        status: e.target.value,
+                      })
+                    }
+                    style={{
+                      width: "100%",
+                      border: "1px solid #e6e9ef",
+                      background: "#fff",
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      color: "#111827",
+                      fontSize: 14,
+                      transition: "all 0.2s",
+                      boxSizing: "border-box",
+                      cursor: "pointer",
+                    }}
+                    onFocus={(e) => {
+                      e.currentTarget.style.outline = "2px solid #4f46e5";
+                      e.currentTarget.style.outlineOffset = "2px";
+                      e.currentTarget.style.borderColor = "#4f46e5";
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.outline = "none";
+                      e.currentTarget.style.borderColor = "#e6e9ef";
+                    }}
+                  >
+                    <option value="Ongoing">Ongoing</option>
+                    <option value="Completed">Completed</option>
+                    <option value="Referred">Referred</option>
+                  </select>
+                </div>
 
-                <label
-                  style={{
-                    display: "block",
-                    fontSize: "0.875rem",
-                    fontWeight: "500",
-                    marginBottom: "0.5rem",
-                    color: "#d1d5db",
-                  }}
-                >
-                  Notes
-                </label>
-                <motion.textarea
-                  whileFocus={{ scale: 1.01 }}
-                  value={selectedRecord.notes || ""}
-                  onChange={(e) =>
-                    setSelectedRecord({
-                      ...selectedRecord,
-                      notes: e.target.value,
-                    })
-                  }
-                  rows="3"
-                  style={{
-                    border: "1px solid #4b5563",
-                    background: "rgba(55, 65, 81, 0.5)",
-                    padding: "0.75rem",
-                    width: "100%",
-                    borderRadius: "0.5rem",
-                    marginBottom: "1rem",
-                    color: "white",
-                    transition: "all 0.3s",
-                  }}
-                  onFocus={(e) => {
-                    e.currentTarget.style.outline =
-                      "2px solid #3b82f6";
-                    e.currentTarget.style.borderColor =
-                      "transparent";
-                  }}
-                  onBlur={(e) => {
-                    e.currentTarget.style.outline = "none";
-                    e.currentTarget.style.borderColor = "#4b5563";
-                  }}
-                ></motion.textarea>
+                <div style={{ marginBottom: 16 }}>
+                  <label
+                    style={{
+                      display: "block",
+                      fontSize: 13,
+                      fontWeight: 500,
+                      marginBottom: 6,
+                      color: "#374151",
+                    }}
+                  >
+                    Notes
+                  </label>
+                  <textarea
+                    value={selectedRecord.notes || ""}
+                    onChange={(e) =>
+                      setSelectedRecord({
+                        ...selectedRecord,
+                        notes: e.target.value,
+                      })
+                    }
+                    rows="3"
+                    style={{
+                      width: "100%",
+                      border: "1px solid #e6e9ef",
+                      background: "#fff",
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      color: "#111827",
+                      fontSize: 14,
+                      transition: "all 0.2s",
+                      boxSizing: "border-box",
+                      resize: "vertical",
+                      fontFamily: "inherit",
+                    }}
+                    onFocus={(e) => {
+                      e.currentTarget.style.outline = "2px solid #4f46e5";
+                      e.currentTarget.style.outlineOffset = "2px";
+                      e.currentTarget.style.borderColor = "#4f46e5";
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.outline = "none";
+                      e.currentTarget.style.borderColor = "#e6e9ef";
+                    }}
+                  />
+                </div>
 
-                <label
-                  style={{
-                    display: "block",
-                    fontSize: "0.875rem",
-                    fontWeight: "500",
-                    marginBottom: "0.5rem",
-                    color: "#d1d5db",
-                  }}
-                >
-                  Outcomes
-                </label>
-                <motion.textarea
-                  whileFocus={{ scale: 1.01 }}
-                  value={selectedRecord.outcomes || ""}
-                  onChange={(e) =>
-                    setSelectedRecord({
-                      ...selectedRecord,
-                      outcomes: e.target.value,
-                    })
-                  }
-                  rows="3"
-                  style={{
-                    border: "1px solid #4b5563",
-                    background: "rgba(55, 65, 81, 0.5)",
-                    padding: "0.75rem",
-                    width: "100%",
-                    borderRadius: "0.5rem",
-                    marginBottom: "1.25rem",
-                    color: "white",
-                    transition: "all 0.3s",
-                  }}
-                  onFocus={(e) => {
-                    e.currentTarget.style.outline =
-                      "2px solid #3b82f6";
-                    e.currentTarget.style.borderColor =
-                      "transparent";
-                  }}
-                  onBlur={(e) => {
-                    e.currentTarget.style.outline = "none";
-                    e.currentTarget.style.borderColor = "#4b5563";
-                  }}
-                ></motion.textarea>
+                <div style={{ marginBottom: 20 }}>
+                  <label
+                    style={{
+                      display: "block",
+                      fontSize: 13,
+                      fontWeight: 500,
+                      marginBottom: 6,
+                      color: "#374151",
+                    }}
+                  >
+                    Outcomes
+                  </label>
+                  <textarea
+                    value={selectedRecord.outcomes || ""}
+                    onChange={(e) =>
+                      setSelectedRecord({
+                        ...selectedRecord,
+                        outcomes: e.target.value,
+                      })
+                    }
+                    rows="3"
+                    style={{
+                      width: "100%",
+                      border: "1px solid #e6e9ef",
+                      background: "#fff",
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      color: "#111827",
+                      fontSize: 14,
+                      transition: "all 0.2s",
+                      boxSizing: "border-box",
+                      resize: "vertical",
+                      fontFamily: "inherit",
+                    }}
+                    onFocus={(e) => {
+                      e.currentTarget.style.outline = "2px solid #4f46e5";
+                      e.currentTarget.style.outlineOffset = "2px";
+                      e.currentTarget.style.borderColor = "#4f46e5";
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.outline = "none";
+                      e.currentTarget.style.borderColor = "#e6e9ef";
+                    }}
+                  />
+                </div>
 
                 <div
                   style={{
                     display: "flex",
                     justifyContent: "flex-end",
-                    gap: "0.75rem",
+                    gap: 12,
                   }}
                 >
                   <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={() => setSelectedRecord(null)}
                     style={{
-                      background: "#4b5563",
-                      color: "white",
-                      padding: "0.5rem 1.25rem",
-                      borderRadius: "0.5rem",
-                      border: "none",
+                      padding: "10px 20px",
+                      borderRadius: 10,
+                      border: "1px solid #e6e9ef",
+                      background: "#fff",
                       cursor: "pointer",
-                      transition: "all 0.3s",
+                      color: "#111827",
+                      fontWeight: 600,
+                      fontSize: 14,
                     }}
-                    onMouseEnter={(e) =>
-                      (e.currentTarget.style.background = "#374151")
-                    }
-                    onMouseLeave={(e) =>
-                      (e.currentTarget.style.background = "#4b5563")
-                    }
                   >
                     Cancel
                   </motion.button>
                   <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={handleSave}
                     style={{
-                      background:
-                        "linear-gradient(to right, #2563eb, #9333ea)",
+                      background: "linear-gradient(90deg, #06b6d4, #3b82f6)",
                       color: "white",
-                      padding: "0.5rem 1.25rem",
-                      borderRadius: "0.5rem",
-                      boxShadow:
-                        "0 10px 15px -3px rgba(0, 0, 0, 0.1)",
+                      padding: "10px 20px",
+                      borderRadius: 10,
                       border: "none",
                       cursor: "pointer",
+                      fontWeight: 600,
+                      fontSize: 14,
+                      boxShadow: "0 4px 12px rgba(6, 182, 212, 0.3)",
                     }}
                   >
                     Save Changes

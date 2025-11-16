@@ -25,7 +25,8 @@ function Login() {
       });
 
       localStorage.setItem("authToken", res.data.token);
-      localStorage.setItem("user", JSON.stringify(res.data.result));
+      localStorage.setItem("token", res.data.token); // Store as both for consistency
+      localStorage.setItem("user", JSON.stringify(res.data.user || res.data.result));
 
       alert("✅ Login successful!");
       navigate("/dashboard", { replace: true });

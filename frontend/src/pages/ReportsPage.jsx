@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
+import { motion, AnimatePresence } from "framer-motion";
 
 const API_URL = "http://localhost:5000/api/records";
 
@@ -257,7 +258,7 @@ const ReportsPage = () => {
       doc.text("Outcome:", 14, finalY);
       finalY += 7;
       doc.setFont("helvetica", "normal");
-      const outcome = record.outcome || "No outcome recorded";
+      const outcome = record.outcomes || record.outcome || "No outcome recorded";
       const splitOutcome = doc.splitTextToSize(outcome, 180);
       doc.text(splitOutcome, 14, finalY);
       finalY += splitOutcome.length * 5 + 10;
@@ -309,455 +310,658 @@ const ReportsPage = () => {
   };
 
   return (
-    <div style={{
-      minHeight: "100vh",
-       width: "100vw",
-      background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-      padding: "40px 0px",
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center"
-    }}>
-      {/* Back Button */}
-      <div style={{
-        width: "100%",
-        maxWidth: "1400px",
-        marginBottom: "20px"
-      }}>
-        <button
-          onClick={() => navigate("/dashboard")}
+    <div
+      style={{
+        width: "100vw",
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        background: "linear-gradient(135deg, #eef2ff, #c7d2fe)",
+        fontFamily: "'Montserrat', sans-serif",
+        padding: "40px 16px",
+        gap: 20,
+        boxSizing: "border-box",
+      }}
+    >
+      <div
+        style={{
+          maxWidth: 1200,
+          width: "100%",
+          display: "flex",
+          flexDirection: "column",
+          gap: 20,
+        }}
+      >
+        {/* Header Card */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
           style={{
-            background: "rgba(255, 255, 255, 0.2)",
-            color: "white",
-            padding: "10px 20px",
-            borderRadius: "8px",
-            border: "2px solid white",
-            fontSize: "14px",
-            fontWeight: "600",
-            cursor: "pointer",
-            transition: "all 0.3s",
-            backdropFilter: "blur(10px)"
-          }}
-          onMouseEnter={(e) => {
-            e.target.style.background = "white";
-            e.target.style.color = "#667eea";
-          }}
-          onMouseLeave={(e) => {
-            e.target.style.background = "rgba(255, 255, 255, 0.2)";
-            e.target.style.color = "white";
+            background: "#fff",
+            borderRadius: 16,
+            padding: 24,
+            boxShadow: "0 10px 25px rgba(0,0,0,0.06)",
           }}
         >
-          ← Back to Dashboard
-        </button>
-      </div>
-
-      {/* Header */}
-      <header style={{
-        textAlign: "center",
-        marginBottom: "40px",
-        color: "white"
-      }}>
-        <h1 style={{
-          fontSize: "2.5rem",
-          fontWeight: "bold",
-          marginBottom: "10px",
-          textShadow: "2px 2px 4px rgba(0,0,0,0.3)"
-        }}>
-          📊 Counseling Reports
-        </h1>
-        <p style={{
-          fontSize: "1.1rem",
-          opacity: "0.9"
-        }}>
-          Generate and review comprehensive progress reports
-        </p>
-      </header>
-
-      {/* Main Container */}
-      <div style={{
-        width: "100%",
-        maxWidth: "1400px",
-        margin: "0 auto"
-      }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "flex-start",
+              flexWrap: "wrap",
+              gap: 16,
+            }}
+          >
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <h1 style={{ color: "#111827", margin: 0, fontSize: "clamp(1.5rem, 4vw, 2rem)" }}>
+                Counseling Reports
+              </h1>
+              <p style={{ color: "#6b7280", marginTop: 6, fontSize: 14 }}>
+                Generate and review comprehensive progress reports for counseling sessions.
+              </p>
+            </div>
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => navigate("/dashboard")}
+              style={{
+                padding: "10px 16px",
+                borderRadius: 10,
+                border: "1px solid #e6e9ef",
+                background: "#fff",
+                cursor: "pointer",
+                color: "#111827",
+                fontWeight: 600,
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                whiteSpace: "nowrap",
+              }}
+            >
+              <span>←</span>
+              <span>Back to Dashboard</span>
+            </motion.button>
+          </div>
+        </motion.div>
         {/* Filter Section */}
-        <div style={{
-          background: "white",
-          padding: "30px",
-          borderRadius: "15px",
-          boxShadow: "0 10px 30px rgba(0,0,0,0.2)",
-          marginBottom: "30px"
-        }}>
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-            gap: "15px",
-            marginBottom: "20px"
-          }}>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          style={{
+            background: "#fff",
+            borderRadius: 16,
+            padding: 24,
+            boxShadow: "0 10px 25px rgba(0,0,0,0.06)",
+          }}
+        >
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+              gap: 16,
+              marginBottom: 20,
+            }}
+          >
             <input
               type="text"
               placeholder="🔍 Search by client name"
               value={clientName}
               onChange={(e) => setClientName(e.target.value)}
               style={{
-                padding: "12px 15px",
-                border: "2px solid #e2e8f0",
-                borderRadius: "8px",
-                fontSize: "14px",
-                outline: "none",
-                transition: "all 0.3s"
+                width: "100%",
+                border: "1px solid #e6e9ef",
+                background: "#fff",
+                padding: "10px 12px",
+                borderRadius: 10,
+                color: "#111827",
+                fontSize: 14,
+                transition: "all 0.2s",
+                boxSizing: "border-box",
               }}
-              onFocus={(e) => e.target.style.borderColor = "#667eea"}
-              onBlur={(e) => e.target.style.borderColor = "#e2e8f0"}
+              onFocus={(e) => {
+                e.currentTarget.style.outline = "2px solid #4f46e5";
+                e.currentTarget.style.outlineOffset = "2px";
+                e.currentTarget.style.borderColor = "#4f46e5";
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.outline = "none";
+                e.currentTarget.style.borderColor = "#e6e9ef";
+              }}
             />
             <input
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
               style={{
-                padding: "12px 15px",
-                border: "2px solid #e2e8f0",
-                borderRadius: "8px",
-                fontSize: "14px",
-                outline: "none"
+                width: "100%",
+                border: "1px solid #e6e9ef",
+                background: "#fff",
+                padding: "10px 12px",
+                borderRadius: 10,
+                color: "#111827",
+                fontSize: 14,
+                transition: "all 0.2s",
+                boxSizing: "border-box",
               }}
-              onFocus={(e) => e.target.style.borderColor = "#667eea"}
-              onBlur={(e) => e.target.style.borderColor = "#e2e8f0"}
+              onFocus={(e) => {
+                e.currentTarget.style.outline = "2px solid #4f46e5";
+                e.currentTarget.style.outlineOffset = "2px";
+                e.currentTarget.style.borderColor = "#4f46e5";
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.outline = "none";
+                e.currentTarget.style.borderColor = "#e6e9ef";
+              }}
             />
             <input
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
               style={{
-                padding: "12px 15px",
-                border: "2px solid #e2e8f0",
-                borderRadius: "8px",
-                fontSize: "14px",
-                outline: "none"
+                width: "100%",
+                border: "1px solid #e6e9ef",
+                background: "#fff",
+                padding: "10px 12px",
+                borderRadius: 10,
+                color: "#111827",
+                fontSize: 14,
+                transition: "all 0.2s",
+                boxSizing: "border-box",
               }}
-              onFocus={(e) => e.target.style.borderColor = "#667eea"}
-              onBlur={(e) => e.target.style.borderColor = "#e2e8f0"}
+              onFocus={(e) => {
+                e.currentTarget.style.outline = "2px solid #4f46e5";
+                e.currentTarget.style.outlineOffset = "2px";
+                e.currentTarget.style.borderColor = "#4f46e5";
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.outline = "none";
+                e.currentTarget.style.borderColor = "#e6e9ef";
+              }}
             />
           </div>
           
-          <div style={{
-            display: "flex",
-            justifyContent: "center",
-            gap: "15px",
-            flexWrap: "wrap"
-          }}>
-            <button
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              gap: 12,
+              flexWrap: "wrap",
+            }}
+          >
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
               onClick={handleFilter}
               disabled={loading}
               style={{
-                background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                background: "linear-gradient(90deg, #06b6d4, #3b82f6)",
                 color: "white",
-                padding: "12px 30px",
-                borderRadius: "8px",
+                padding: "12px 20px",
+                borderRadius: 10,
                 border: "none",
-                fontSize: "16px",
-                fontWeight: "600",
                 cursor: loading ? "not-allowed" : "pointer",
-                boxShadow: "0 4px 15px rgba(102, 126, 234, 0.4)",
-                transition: "transform 0.2s",
-                opacity: loading ? 0.7 : 1
+                fontWeight: 600,
+                fontSize: 14,
+                boxShadow: "0 4px 12px rgba(6, 182, 212, 0.3)",
+                opacity: loading ? 0.7 : 1,
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
               }}
-              onMouseEnter={(e) => !loading && (e.target.style.transform = "translateY(-2px)")}
-              onMouseLeave={(e) => e.target.style.transform = "translateY(0)"}
             >
               {loading ? "⏳ Loading..." : "📊 Filter Records"}
-            </button>
-            <button
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
               onClick={handleDownloadPDF}
               disabled={filteredRecords.length === 0}
               style={{
-                background: "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)",
+                background: "linear-gradient(90deg, #10b981, #059669)",
                 color: "white",
-                padding: "12px 30px",
-                borderRadius: "8px",
+                padding: "12px 20px",
+                borderRadius: 10,
                 border: "none",
-                fontSize: "16px",
-                fontWeight: "600",
                 cursor: filteredRecords.length === 0 ? "not-allowed" : "pointer",
-                boxShadow: "0 4px 15px rgba(17, 153, 142, 0.4)",
-                transition: "transform 0.2s",
-                opacity: filteredRecords.length === 0 ? 0.5 : 1
+                fontWeight: 600,
+                fontSize: 14,
+                boxShadow: "0 4px 12px rgba(16, 185, 129, 0.3)",
+                opacity: filteredRecords.length === 0 ? 0.5 : 1,
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
               }}
-              onMouseEnter={(e) => filteredRecords.length > 0 && (e.target.style.transform = "translateY(-2px)")}
-              onMouseLeave={(e) => e.target.style.transform = "translateY(0)"}
             >
               📥 Download PDF
-            </button>
+            </motion.button>
           </div>
 
           {error && (
-            <div style={{
-              marginTop: "20px",
-              padding: "12px",
-              background: "#fee",
-              color: "#c33",
-              borderRadius: "8px",
-              textAlign: "center",
-              fontWeight: "500"
-            }}>
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              style={{
+                marginTop: 20,
+                padding: 12,
+                background: "#fee",
+                color: "#c33",
+                borderRadius: 10,
+                textAlign: "center",
+                fontWeight: 500,
+                fontSize: 14,
+              }}
+            >
               ❌ {error}
-            </div>
+            </motion.div>
           )}
-        </div>
+        </motion.div>
 
         {/* Records Table */}
-        <div style={{
-          background: "white",
-          borderRadius: "15px",
-          boxShadow: "0 10px 30px rgba(0,0,0,0.2)",
-          overflow: "hidden"
-        }}>
-          <div style={{ overflowX: "auto" }}>
-            <table style={{
-              width: "100%",
-              borderCollapse: "collapse"
-            }}>
-              <thead>
-                <tr style={{
-                  background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                  color: "white"
-                }}>
-                  <th style={{ padding: "15px", textAlign: "left", fontWeight: "600" }}>Client Name</th>
-                  <th style={{ padding: "15px", textAlign: "left", fontWeight: "600" }}>Date</th>
-                  <th style={{ padding: "15px", textAlign: "center", fontWeight: "600" }}>Status</th>
-                  <th style={{ padding: "15px", textAlign: "left", fontWeight: "600" }}>Counselor</th>
-                  <th style={{ padding: "15px", textAlign: "center", fontWeight: "600" }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          style={{
+            background: "#fff",
+            borderRadius: 16,
+            padding: 20,
+            boxShadow: "0 10px 25px rgba(0,0,0,0.06)",
+          }}
+        >
+          {loading ? (
+            <div style={{ textAlign: "center", padding: "3rem 0" }}>
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                style={{
+                  width: "3rem",
+                  height: "3rem",
+                  border: "4px solid #4f46e5",
+                  borderTopColor: "transparent",
+                  borderRadius: "9999px",
+                  margin: "0 auto",
+                }}
+              ></motion.div>
+              <p style={{ color: "#6b7280", marginTop: "1rem", fontSize: 14 }}>
+                Loading records...
+              </p>
+            </div>
+          ) : filteredRecords.length > 0 ? (
+            <div style={{ overflowX: "auto" }}>
+              <table
+                style={{
+                  width: "100%",
+                  borderCollapse: "collapse",
+                  color: "#111827",
+                }}
+              >
+                <thead
+                  style={{
+                    background: "#f8fafc",
+                    borderBottom: "2px solid #e6e9ef",
+                  }}
+                >
                   <tr>
-                    <td colSpan="5" style={{
-                      textAlign: "center",
-                      padding: "40px",
-                      color: "#718096",
-                      fontStyle: "italic"
-                    }}>
-                      ⏳ Loading records...
-                    </td>
-                  </tr>
-                ) : filteredRecords.length > 0 ? (
-                  filteredRecords.map((record, index) => (
-                    <tr
-                      key={record._id}
+                    <th
                       style={{
-                        borderBottom: "1px solid #e2e8f0",
-                        background: index % 2 === 0 ? "#296892ff" : "white",
-                        transition: "background 0.2s"
+                        padding: "12px",
+                        textAlign: "left",
+                        fontWeight: 600,
+                        fontSize: 13,
+                        color: "#374151",
                       }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = "#296892ff"}
-                      onMouseLeave={(e) => e.currentTarget.style.background = index % 2 === 0 ? "#296892ff" : "white"}
                     >
-                      <td style={{ padding: "15px", fontWeight: "500" }}>{record.clientName}</td>
-                      <td style={{ padding: "15px" }}>{new Date(record.date).toLocaleDateString()}</td>
-                      <td style={{ padding: "15px", textAlign: "center" }}>
-                        <span style={{
-                          padding: "4px 12px",
-                          borderRadius: "12px",
-                          fontSize: "0.85rem",
-                          fontWeight: "500",
-                          background: record.status === "Completed" ? "#c6f6d5" : 
-                                     record.status === "Ongoing" ? "#bee3f8" : "#fed7d7",
-                          color: record.status === "Completed" ? "#22543d" : 
-                                 record.status === "Ongoing" ? "#1a365d" : "#742a2a"
-                        }}>
-                          {record.status}
-                        </span>
-                      </td>
-                      <td style={{ padding: "15px" }}>{record.counselor}</td>
-                      <td style={{ padding: "15px", textAlign: "center" }}>
-                        <button
-                          onClick={() => setSelectedRecord(record)}
-                          style={{
-                            background: "#667eea",
-                            color: "white",
-                            padding: "8px 20px",
-                            borderRadius: "6px",
-                            border: "none",
-                            cursor: "pointer",
-                            fontWeight: "500",
-                            transition: "all 0.2s"
-                          }}
-                          onMouseEnter={(e) => {
-                            e.target.style.background = "#5568d3";
-                            e.target.style.transform = "scale(1.05)";
-                          }}
-                          onMouseLeave={(e) => {
-                            e.target.style.background = "#667eea";
-                            e.target.style.transform = "scale(1)";
-                          }}
-                        >
-                          👁️ View Details
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="5" style={{
-                      textAlign: "center",
-                      padding: "40px",
-                      color: "#718096",
-                      fontStyle: "italic"
-                    }}>
-                      📭 No records found
-                    </td>
+                      Client Name
+                    </th>
+                    <th
+                      style={{
+                        padding: "12px",
+                        textAlign: "left",
+                        fontWeight: 600,
+                        fontSize: 13,
+                        color: "#374151",
+                      }}
+                    >
+                      Date
+                    </th>
+                    <th
+                      style={{
+                        padding: "12px",
+                        textAlign: "center",
+                        fontWeight: 600,
+                        fontSize: 13,
+                        color: "#374151",
+                      }}
+                    >
+                      Status
+                    </th>
+                    <th
+                      style={{
+                        padding: "12px",
+                        textAlign: "left",
+                        fontWeight: 600,
+                        fontSize: 13,
+                        color: "#374151",
+                      }}
+                    >
+                      Counselor
+                    </th>
+                    <th
+                      style={{
+                        padding: "12px",
+                        textAlign: "center",
+                        fontWeight: 600,
+                        fontSize: 13,
+                        color: "#374151",
+                      }}
+                    >
+                      Actions
+                    </th>
                   </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                </thead>
+                <tbody>
+                  <AnimatePresence>
+                    {filteredRecords.map((record, index) => (
+                      <motion.tr
+                        key={record._id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ delay: index * 0.03 }}
+                        style={{
+                          borderBottom: "1px solid #e6e9ef",
+                          transition: "all 0.2s",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = "#f8fafc";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = "transparent";
+                        }}
+                      >
+                        <td style={{ padding: "12px", fontWeight: 500, fontSize: 14 }}>
+                          {record.clientName}
+                        </td>
+                        <td style={{ padding: "12px", fontSize: 14 }}>
+                          {record.date
+                            ? new Date(record.date).toLocaleDateString()
+                            : "-"}
+                        </td>
+                        <td style={{ padding: "12px" }}>
+                          <span
+                            style={{
+                              padding: "4px 10px",
+                              borderRadius: 8,
+                              fontSize: 12,
+                              fontWeight: 600,
+                              display: "inline-block",
+                              ...(record.status === "Completed"
+                                ? {
+                                    background: "rgba(16, 185, 129, 0.1)",
+                                    color: "#059669",
+                                  }
+                                : record.status === "Ongoing"
+                                ? {
+                                    background: "rgba(245, 158, 11, 0.1)",
+                                    color: "#d97706",
+                                  }
+                                : {
+                                    background: "rgba(168, 85, 247, 0.1)",
+                                    color: "#9333ea",
+                                  }),
+                            }}
+                          >
+                            {record.status}
+                          </span>
+                        </td>
+                        <td style={{ padding: "12px", fontSize: 14 }}>
+                          {record.counselor}
+                        </td>
+                        <td style={{ padding: "12px" }}>
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "center",
+                            }}
+                          >
+                            <motion.button
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={() => setSelectedRecord(record)}
+                              style={{
+                                background: "#4f46e5",
+                                color: "white",
+                                padding: "6px 12px",
+                                borderRadius: 8,
+                                border: "none",
+                                cursor: "pointer",
+                                fontSize: 13,
+                                fontWeight: 600,
+                              }}
+                            >
+                              View Details
+                            </motion.button>
+                          </div>
+                        </td>
+                      </motion.tr>
+                    ))}
+                  </AnimatePresence>
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div style={{ textAlign: "center", padding: "3rem 0" }}>
+              <p
+                style={{
+                  color: "#6b7280",
+                  fontSize: 14,
+                  fontStyle: "italic",
+                }}
+              >
+                📭 No records found matching your criteria.
+              </p>
+            </div>
+          )}
+        </motion.div>
       </div>
 
       {/* Modal for Detailed Record */}
-      {selectedRecord && (
-        <div style={{
-          position: "fixed",
-          inset: 0,
-          background: "rgba(0, 0, 0, 0.7)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          zIndex: 1000,
-          padding: "20px"
-        }}>
-          <div style={{
-            background: "white",
-            padding: "40px",
-            borderRadius: "20px",
-            boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
-            width: "100%",
-            maxWidth: "800px",
-            maxHeight: "90vh",
-            overflowY: "auto"
-          }}>
-            <h2 style={{
-              fontSize: "1.8rem",
-              fontWeight: "bold",
-              marginBottom: "10px",
-              color: "#2d3748"
-            }}>
-              📋 {selectedRecord.clientName} — Session Details
-            </h2>
-            <p style={{
-              color: "#718096",
-              marginBottom: "30px",
-              fontSize: "1.1rem"
-            }}>
-              👤 Counselor: <strong>{selectedRecord.counselor}</strong> | 📅 Date: <strong>{new Date(selectedRecord.date).toLocaleDateString()}</strong>
-            </p>
-
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-              gap: "20px",
-              marginBottom: "30px"
-            }}>
-              <div style={{
-                background: "#667eea15",
-                padding: "20px",
-                borderRadius: "12px",
-                borderLeft: "4px solid #667eea",
-                textAlign: "center"
-              }}>
-                <div style={{ fontSize: "2rem", marginBottom: "8px" }}>📊</div>
-                <div style={{ fontSize: "0.9rem", color: "#718096", marginBottom: "5px" }}>Status</div>
-                <div style={{ fontSize: "1.5rem", fontWeight: "bold", color: "#667eea" }}>{selectedRecord.status}</div>
-              </div>
-            </div>
-
-            <div style={{ marginBottom: "25px" }}>
-              <h3 style={{
-                fontSize: "1.2rem",
-                fontWeight: "600",
-                marginBottom: "15px",
-                color: "#2d3748"
-              }}>
-                📝 Notes
-              </h3>
-              <div style={{
-                background: "#f7fafc",
-                borderRadius: "10px",
-                padding: "20px",
-                maxHeight: "200px",
-                overflowY: "auto",
-                border: "1px solid #e2e8f0",
-                color: "#4a5568"
-              }}>
-                {selectedRecord.notes || "No notes available"}
-              </div>
-            </div>
-
-            <div style={{ marginBottom: "30px" }}>
-              <h3 style={{
-                fontSize: "1.2rem",
-                fontWeight: "600",
-                marginBottom: "15px",
-                color: "#2d3748"
-              }}>
-                🎯 Outcome
-              </h3>
-              <div style={{
-                background: "#f7fafc",
-                borderRadius: "10px",
-                padding: "20px",
-                border: "1px solid #e2e8f0",
-                color: "#4a5568"
-              }}>
-                {selectedRecord.outcome || "No outcome recorded"}
-              </div>
-            </div>
-
-            <div style={{
+      <AnimatePresence>
+        {selectedRecord && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0, 0, 0, 0.5)",
+              backdropFilter: "blur(4px)",
               display: "flex",
+              alignItems: "center",
               justifyContent: "center",
-              gap: "15px",
-              flexWrap: "wrap"
-            }}>
-              <button
-                onClick={() => setSelectedRecord(null)}
+              zIndex: 50,
+              padding: "16px",
+            }}
+            onClick={() => setSelectedRecord(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ type: "spring", damping: 20 }}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                background: "#fff",
+                borderRadius: 16,
+                padding: 24,
+                width: "100%",
+                maxWidth: "500px",
+                maxHeight: "90vh",
+                overflowY: "auto",
+                boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+              }}
+            >
+              <h2
                 style={{
-                  background: "#718096",
-                  color: "white",
-                  padding: "12px 30px",
-                  borderRadius: "8px",
-                  border: "none",
-                  cursor: "pointer",
-                  fontWeight: "600",
-                  transition: "all 0.2s"
+                  fontSize: "1.25rem",
+                  fontWeight: 600,
+                  marginBottom: 20,
+                  color: "#111827",
                 }}
-                onMouseEnter={(e) => e.target.style.background = "#4a5568"}
-                onMouseLeave={(e) => e.target.style.background = "#718096"}
               >
-                ✖️ Close
-              </button>
-              <button
-                onClick={handleDownloadPDF}
+                {selectedRecord.clientName} — Session Details
+              </h2>
+              <p
                 style={{
-                  background: "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)",
-                  color: "white",
-                  padding: "12px 30px",
-                  borderRadius: "8px",
-                  border: "none",
-                  cursor: "pointer",
-                  fontWeight: "600",
-                  boxShadow: "0 4px 15px rgba(17, 153, 142, 0.4)",
-                  transition: "all 0.2s"
+                  color: "#6b7280",
+                  marginBottom: 20,
+                  fontSize: 14,
                 }}
-                onMouseEnter={(e) => e.target.style.transform = "scale(1.05)"}
-                onMouseLeave={(e) => e.target.style.transform = "scale(1)"}
               >
-                📥 Download PDF
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+                Counselor: <strong>{selectedRecord.counselor}</strong> | Date:{" "}
+                <strong>
+                  {new Date(selectedRecord.date).toLocaleDateString()}
+                </strong>
+              </p>
+
+              <div style={{ marginBottom: 16 }}>
+                <div
+                  style={{
+                    background: "rgba(79, 70, 229, 0.1)",
+                    padding: 16,
+                    borderRadius: 10,
+                    borderLeft: "4px solid #4f46e5",
+                    textAlign: "center",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: "0.9rem",
+                      color: "#6b7280",
+                      marginBottom: 5,
+                    }}
+                  >
+                    Status
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "1.2rem",
+                      fontWeight: 600,
+                      color: "#4f46e5",
+                    }}
+                  >
+                    {selectedRecord.status}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ marginBottom: 16 }}>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: 13,
+                    fontWeight: 500,
+                    marginBottom: 6,
+                    color: "#374151",
+                  }}
+                >
+                  Notes
+                </label>
+                <div
+                  style={{
+                    background: "#f8fafc",
+                    borderRadius: 10,
+                    padding: 12,
+                    border: "1px solid #e6e9ef",
+                    color: "#4a5568",
+                    fontSize: 14,
+                    minHeight: 80,
+                    maxHeight: 200,
+                    overflowY: "auto",
+                  }}
+                >
+                  {selectedRecord.notes || "No notes available"}
+                </div>
+              </div>
+
+              <div style={{ marginBottom: 20 }}>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: 13,
+                    fontWeight: 500,
+                    marginBottom: 6,
+                    color: "#374151",
+                  }}
+                >
+                  Outcome
+                </label>
+                <div
+                  style={{
+                    background: "#f8fafc",
+                    borderRadius: 10,
+                    padding: 12,
+                    border: "1px solid #e6e9ef",
+                    color: "#4a5568",
+                    fontSize: 14,
+                    minHeight: 80,
+                  }}
+                >
+                  {selectedRecord.outcomes || selectedRecord.outcome || "No outcome recorded"}
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  gap: 12,
+                }}
+              >
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setSelectedRecord(null)}
+                  style={{
+                    padding: "10px 20px",
+                    borderRadius: 10,
+                    border: "1px solid #e6e9ef",
+                    background: "#fff",
+                    cursor: "pointer",
+                    color: "#111827",
+                    fontWeight: 600,
+                    fontSize: 14,
+                  }}
+                >
+                  Cancel
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={handleDownloadPDF}
+                  style={{
+                    background: "linear-gradient(90deg, #10b981, #059669)",
+                    color: "white",
+                    padding: "10px 20px",
+                    borderRadius: 10,
+                    border: "none",
+                    cursor: "pointer",
+                    fontWeight: 600,
+                    fontSize: 14,
+                    boxShadow: "0 4px 12px rgba(16, 185, 129, 0.3)",
+                  }}
+                >
+                  Download PDF
+                </motion.button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
