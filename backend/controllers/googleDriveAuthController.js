@@ -32,10 +32,13 @@ export const googleDriveCallback = async (req, res) => {
     driveTokens = tokens; // ✅ Save the tokens in memory
     console.log("✅ Google Drive connected successfully!");
 
-    res.send("✅ Google Drive connected successfully. You can now upload files.");
+    // Redirect back to the records page with success parameter
+    const clientUrl = process.env.CLIENT_URL || "http://localhost:5173";
+    res.redirect(`${clientUrl}/records?success=drive_connected`);
   } catch (err) {
     console.error("❌ Error during Google OAuth callback:", err);
-    res.status(500).json({ message: "Google Drive OAuth failed", error: err.message });
+    const clientUrl = process.env.CLIENT_URL || "http://localhost:5173";
+    res.redirect(`${clientUrl}/records?error=drive_connection_failed`);
   }
 };
 

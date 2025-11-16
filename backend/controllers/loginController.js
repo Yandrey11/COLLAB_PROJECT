@@ -1,5 +1,6 @@
 import User from "../models/user.js";
 import jwt from "jsonwebtoken";
+import { createSession } from "./admin/sessionController.js";
 
 export const login = async (req, res) => {
   try {
@@ -15,6 +16,11 @@ export const login = async (req, res) => {
       return res.status(400).json({ message: "Invalid credentials" });
     }
 
+    // Check if account is active
+    if (user.accountStatus === "inactive") {
+      return res.status(403).json({ message: "Account is inactive. Please contact an administrator." });
+    }
+
     // ✅ Compare entered password with stored hash
     const isMatch = await user.matchPassword(password);
 
@@ -28,6 +34,14 @@ export const login = async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: "1d" }
     );
+
+    // ✅ Create session record
+    try {
+      await createSession(user, token, req);
+    } catch (sessionError) {
+      console.error("⚠️ Session creation failed (non-critical):", sessionError);
+      // Continue with login even if session creation fails
+    }
 
     res.status(200).json({
       message: "Login successful",

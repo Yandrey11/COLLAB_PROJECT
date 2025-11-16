@@ -1,5 +1,6 @@
 // controllers/reportController.js
 import Record from "../models/Record.js";
+import { createNotification } from "./admin/notificationController.js";
 
 // ✅ Get all reports (optionally filter by client or date)
 export const getReports = async (req, res) => {
@@ -56,6 +57,32 @@ export const generateReport = async (req, res) => {
       notesSummary: sessions.map(s => s.notes).filter(Boolean),
       outcomes: sessions.map(s => s.outcomes).filter(Boolean),
     };
+
+    // ✅ Create notification for admin about report generation
+    try {
+      const userRole = req.user?.role || "user";
+      const userName = req.user?.name || req.user?.email || "Unknown User";
+      
+      await createNotification({
+        title: "Report Generated",
+        description: `${userName} (${userRole}) has generated a report for client: ${clientName}. Total sessions: ${sessions.length}`,
+        category: "User Activity",
+        priority: "medium",
+        metadata: {
+          clientName,
+          totalSessions: sessions.length,
+          generatedBy: userName,
+          generatedByRole: userRole,
+          startDate: startDate || null,
+          endDate: endDate || null,
+        },
+        relatedId: clientName,
+        relatedType: "report",
+      });
+    } catch (notificationError) {
+      console.error("⚠️ Notification creation failed (non-critical):", notificationError);
+      // Continue with report generation even if notification creation fails
+    }
 
     res.status(200).json({
       message: "✅ Report generated successfully",
