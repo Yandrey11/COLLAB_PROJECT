@@ -23,19 +23,43 @@ export default function AdminLogin() {
     }
 
     try {
+      console.log("🔐 Attempting admin login for:", email);
       const res = await axios.post("http://localhost:5000/api/admin/login", {
         email,
         password,
         captchaToken,
       });
 
+      console.log("✅ Login response received:", res.data);
+
+      // Verify token exists in response
+      if (!res.data.token) {
+        console.error("❌ No token in response:", res.data);
+        setMessage("⚠️ Login failed: No token received from server.");
+        setLoading(false);
+        return;
+      }
+
+      // Store token and admin data
       localStorage.setItem("adminToken", res.data.token);
       localStorage.setItem("admin", JSON.stringify(res.data.admin));
 
+      // Verify token was stored
+      const storedToken = localStorage.getItem("adminToken");
+      if (!storedToken) {
+        console.error("❌ Token not stored in localStorage");
+        setMessage("⚠️ Failed to store token. Please try again.");
+        setLoading(false);
+        return;
+      }
+
+      console.log("✅ Token stored successfully, redirecting to dashboard");
       alert("✅ Admin login successful!");
       navigate("/admindashboard", { replace: true });
     } catch (err) {
-      console.error(err);
+      console.error("❌ Login error:", err);
+      console.error("Error response:", err.response?.data);
+      console.error("Error status:", err.response?.status);
       setMessage(err.response?.data?.message || "Login failed. Try again.");
     } finally {
       setLoading(false);
@@ -212,9 +236,7 @@ export default function AdminLogin() {
 
           
 
-          <button className="signup-btn" onClick={() => navigate("/adminsignup")}>
-            Don't have an account? Sign up
-          </button>
+         
 
           <button className="back-btn" onClick={() => navigate("/")}>
             ← Back to Landing Page

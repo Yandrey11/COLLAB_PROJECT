@@ -11,6 +11,8 @@ export default function AdminDashboard() {
   // Summary & activity
   const [summary, setSummary] = useState({
     totalUsers: "—",
+    totalAdmins: "—",
+    totalCounselors: "—",
     active: "—",
     inactive: "—",
     recentActivity: [],
@@ -18,7 +20,9 @@ export default function AdminDashboard() {
 
   // Notifications (polled)
   const [notifications, setNotifications] = useState([]);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const notificationsIntervalRef = useRef(null);
+  const summaryIntervalRef = useRef(null);
 
   // Users list: search / filter / paginate
   const [users, setUsers] = useState([]);
@@ -39,18 +43,21 @@ export default function AdminDashboard() {
     }
 
     const fetchAdmin = async () => {
+      // ⚠️ TEMPORARILY DISABLED: Allow access without token for debugging
       const token = localStorage.getItem("adminToken");
-      if (!token) {
-        alert("⚠️ No admin token found. Please log in.");
-        navigate("/login", { replace: true });
-        return;
-      }
-
+      
       try {
         // main verification (do not change endpoint)
+        console.log("📤 Sending request to /api/admin/dashboard");
         const res = await axios.get("http://localhost:5000/api/admin/dashboard", {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: token ? { 
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json"
+          } : {
+            "Content-Type": "application/json"
+          },
         });
+        console.log("✅ Dashboard response received:", res.data);
 
         // If user is not admin -> Access Denied UI then redirect
         if (res.data.role !== "admin") {
@@ -69,8 +76,15 @@ export default function AdminDashboard() {
         // fetch summary, users and start notifications polling
         await Promise.all([fetchSummary(token), fetchUsers(token, 1, usersQuery, usersStatusFilter)]);
         startNotificationsPolling(token);
+        startSummaryPolling(token); // Start polling for recent activities
       } catch (err) {
         console.error("❌ Admin verification failed:", err);
+        console.error("❌ Error response:", err.response?.data);
+        console.error("❌ Error status:", err.response?.status);
+        console.error("❌ Error headers:", err.response?.headers);
+        if (err.response?.data?.message) {
+          alert(`❌ ${err.response.data.message}`);
+        }
         localStorage.removeItem("adminToken");
         navigate("/adminlogin", { replace: true });
       } finally {
@@ -83,6 +97,7 @@ export default function AdminDashboard() {
     return () => {
       // cleanup polling
       if (notificationsIntervalRef.current) clearInterval(notificationsIntervalRef.current);
+      if (summaryIntervalRef.current) clearInterval(summaryIntervalRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigate]);
@@ -91,9 +106,14 @@ export default function AdminDashboard() {
   const fetchSummary = async (token) => {
     try {
       const res = await axios.get("http://localhost:5000/api/admin/summary", {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: token ? { 
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        } : {
+          "Content-Type": "application/json"
+        },
       });
-      // expected: { totalUsers, active, inactive, recentActivity: [] }
+      // expected: { totalUsers, totalAdmins, totalCounselors, active, inactive, recentActivity: [] }
       setSummary((prev) => ({ ...prev, ...res.data }));
     } catch (err) {
       // If endpoint missing, keep defaults; optionally fallback to minimal values from dashboard response
@@ -125,9 +145,16 @@ export default function AdminDashboard() {
     const poll = async () => {
       try {
         const res = await axios.get("http://localhost:5000/api/admin/notifications", {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: token ? { 
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json"
+          } : {
+            "Content-Type": "application/json"
+          },
+          params: { page: 1, limit: 5, status: "unread" },
         });
         setNotifications(res.data.notifications || []);
+        setUnreadNotificationCount(res.data.unreadCount || 0);
       } catch (err) {
         console.warn("Notifications polling failed:", err.message || err);
       }
@@ -136,6 +163,19 @@ export default function AdminDashboard() {
     poll();
     // poll every 10 seconds
     notificationsIntervalRef.current = setInterval(poll, 10000);
+  };
+
+  // Summary polling to refresh recent activities
+  const startSummaryPolling = (token) => {
+    const poll = async () => {
+      try {
+        await fetchSummary(token);
+      } catch (err) {
+        console.warn("Summary polling failed:", err.message || err);
+      }
+    };
+    // poll every 15 seconds to refresh recent activities
+    summaryIntervalRef.current = setInterval(poll, 15000);
   };
 
   const handleLogout = () => {
@@ -163,15 +203,14 @@ export default function AdminDashboard() {
       <div
         style={{
           display: "flex",
-          justifyContent: "center",
           alignItems: "center",
+          justifyContent: "center",
           height: "100vh",
-          background: "linear-gradient(135deg, #6a11cb, #8e62ff)",
-          color: "#fff",
-          fontFamily: "Poppins, sans-serif",
+          fontFamily: "'Montserrat', sans-serif",
+          background: "linear-gradient(135deg, #eef2ff, #c7d2fe)",
         }}
       >
-        Loading Admin Dashboard...
+        <h2 style={{ color: "#111827" }}>Loading Admin Dashboard...</h2>
       </div>
     );
   }
@@ -184,13 +223,14 @@ export default function AdminDashboard() {
           alignItems: "center",
           justifyContent: "center",
           height: "100vh",
-          fontFamily: "Poppins, sans-serif",
+          fontFamily: "'Montserrat', sans-serif",
           flexDirection: "column",
           gap: 12,
+          background: "linear-gradient(135deg, #eef2ff, #c7d2fe)",
         }}
       >
-        <h2 style={{ color: "#c0392b" }}>Access Denied</h2>
-        <p>You do not have permission to access the Admin Dashboard. Redirecting...</p>
+        <h2 style={{ color: "#dc2626" }}>Access Denied</h2>
+        <p style={{ color: "#6b7280" }}>You do not have permission to access the Admin Dashboard. Redirecting...</p>
       </div>
     );
   }
@@ -198,410 +238,568 @@ export default function AdminDashboard() {
   return (
     <div
       style={{
-        display: "flex",
-        minHeight: "100vh",
         width: "100vw",
-        boxSizing: "border-box",
-        overflowX: "hidden",
-        fontFamily: "Poppins, sans-serif",
-        color: "#333",
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        background: "linear-gradient(135deg, #eef2ff, #c7d2fe)",
+        fontFamily: "'Montserrat', sans-serif",
+        padding: "40px 16px",
+        gap: 20,
       }}
     >
-      {/* Sidebar / Navigation (includes required sections) */}
-      <aside
+      <div
         style={{
-          width: "260px",
-          background: "linear-gradient(180deg, #4b2edf, #6b4eff)",
-          color: "#fff",
-          display: "flex",
-          flexDirection: "column",
-          padding: "20px",
+          maxWidth: 1400,
+          width: "100%",
+          display: "grid",
+          gridTemplateColumns: "360px 1fr",
+          gap: 24,
         }}
       >
-        <h2
-          style={{
-            textAlign: "center",
-            marginBottom: "20px",
-            fontWeight: "700",
-            fontSize: "20px",
-          }}
-        >
-          Admin Panel
-        </h2>
-
-        <nav style={{ flex: 1 }}>
-          {[
-            "Overview",
-            "User Management",
-            "Bookkeeping Entries",
-            "Reports & Analytics",
-            "Guidance Content Management",
-            "System Settings",
-          ].map((item) => (
-            <div
-              key={item}
-              style={{
-                padding: "12px 15px",
-                margin: "6px 0",
-                borderRadius: "8px",
-                cursor: "pointer",
-                transition: "0.2s",
-                backgroundColor: item === "Overview" ? "rgba(255,255,255,0.12)" : "transparent",
-              }}
-              onClick={() => {
-                // simple client-side routing placeholders; replace with real routes as needed
-                if (item === "User Management") {
-                  document.getElementById("users-section")?.scrollIntoView({ behavior: "smooth" });
-                } else if (item === "Overview") {
-                  window.scrollTo({ top: 0, behavior: "smooth" });
-                } else {
-                  alert(`${item} clicked — navigate to the appropriate management page.`);
-                }
-              }}
-              onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.12)")}
-              onMouseOut={(e) =>
-                (e.currentTarget.style.backgroundColor =
-                  item === "Overview" ? "rgba(255,255,255,0.12)" : "transparent")
-              }
-            >
-              {item}
-            </div>
-          ))}
-        </nav>
-
-        <button
-          onClick={handleLogout}
-          style={{
-            backgroundColor: "#ff4b4b",
-            border: "none",
-            padding: "10px",
-            borderRadius: "6px",
-            color: "#fff",
-            fontWeight: "600",
-            cursor: "pointer",
-            marginTop: "auto",
-          }}
-        >
-          Logout
-        </button>
-      </aside>
-
-      {/* Main content */}
-      <main
-        style={{
-          flex: 1,
-          backgroundColor: "#f8f8ff",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
-        {/* Top bar */}
-        <header
+        {/* Left: Overview / Navigation */}
+        <aside
           style={{
             background: "#fff",
-            padding: "15px 30px",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            boxShadow: "0 2px 10px rgba(0,0,0,0.05)",
+            borderRadius: 16,
+            padding: 20,
+            boxShadow: "0 10px 25px rgba(0,0,0,0.06)",
+            height: "fit-content",
           }}
         >
-          <form onSubmit={handleUsersSearch} style={{ display: "flex", gap: 12, alignItems: "center" }}>
-            <input
-              type="text"
-              placeholder="Search users or entries..."
-              value={usersQuery}
-              onChange={(e) => setUsersQuery(e.target.value)}
-              style={{
-                padding: "10px 15px",
-                borderRadius: "8px",
-                border: "1px solid #ddd",
-                width: "300px",
-                outline: "none",
-              }}
-            />
-            <select
-              value={usersStatusFilter}
-              onChange={(e) => setUsersStatusFilter(e.target.value)}
-              style={{ padding: "10px", borderRadius: 8, border: "1px solid #ddd" }}
-            >
-              <option value="all">All</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-              <option value="pending">Pending Approvals</option>
-            </select>
-            <button
-              type="submit"
-              style={{
-                padding: "10px 14px",
-                borderRadius: 8,
-                border: "none",
-                background: "#6b4eff",
-                color: "#fff",
-                cursor: "pointer",
-              }}
-            >
-              Search
-            </button>
-          </form>
-
-          <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
-            {/* notifications summary */}
-            <div
-              title="Notifications"
-              style={{
-                position: "relative",
-                cursor: "pointer",
-                padding: "6px 8px",
-                background: "#f5f5f7",
-                borderRadius: 8,
-              }}
-            >
-              🔔
-              {notifications.length > 0 && (
-                <span
-                  style={{
-                    position: "absolute",
-                    top: -6,
-                    right: -6,
-                    background: "#ff4b4b",
-                    color: "#fff",
-                    borderRadius: "50%",
-                    width: 20,
-                    height: 20,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 12,
-                    fontWeight: 700,
-                  }}
-                >
-                  {notifications.length}
-                </span>
-              )}
-            </div>
-
-            {admin && (
-              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                <div
-                  style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: "50%",
-                    background: "#f0f0f0",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    overflow: "hidden",
-                  }}
-                >
-                  {admin.avatar ? (
-                    <img
-                      src={admin.avatar}
-                      alt="profile"
-                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                    />
-                  ) : (
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 24 24"
-                      width="18"
-                      height="18"
-                      fill="#777"
-                    >
-                      <path d="M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 5v2h20v-2c0-3.3-6.7-5-10-5z" />
-                    </svg>
-                  )}
-                </div>
-                <span style={{ fontWeight: "600", color: "#555" }}>{admin.name}</span>
-              </div>
-            )}
-          </div>
-        </header>
-
-        {/* Overview / Summary */}
-        <section
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-            gap: "20px",
-            padding: "30px",
-          }}
-        >
-          <div
-            style={{
-              backgroundColor: "#fff",
-              borderRadius: "12px",
-              boxShadow: "0 4px 10px rgba(0,0,0,0.05)",
-              padding: "20px",
-            }}
-          >
-            <h3 style={{ color: "#666", fontSize: "14px", fontWeight: "500" }}>Total Users</h3>
-            <p style={{ color: "#6b4eff", fontSize: "26px", fontWeight: "700", marginTop: "10px" }}>
-              {summary.totalUsers}
-            </p>
-          </div>
-
-          <div
-            style={{
-              backgroundColor: "#fff",
-              borderRadius: "12px",
-              boxShadow: "0 4px 10px rgba(0,0,0,0.05)",
-              padding: "20px",
-            }}
-          >
-            <h3 style={{ color: "#666", fontSize: "14px", fontWeight: "500" }}>Active / Inactive</h3>
-            <p style={{ color: "#22bb33", fontSize: "20px", fontWeight: "700", marginTop: "10px" }}>
-              {summary.active} active · {summary.inactive} inactive
-            </p>
-          </div>
-
-          <div
-            style={{
-              backgroundColor: "#fff",
-              borderRadius: "12px",
-              boxShadow: "0 4px 10px rgba(0,0,0,0.05)",
-              padding: "20px",
-            }}
-          >
-            <h3 style={{ color: "#666", fontSize: "14px", fontWeight: "500" }}>Recent Activity</h3>
-            <div style={{ marginTop: 10, color: "#777", maxHeight: 120, overflowY: "auto" }}>
-              {summary.recentActivity && summary.recentActivity.length > 0 ? (
-                summary.recentActivity.map((act, idx) => (
-                  <div key={idx} style={{ padding: "6px 0", borderBottom: "1px solid #f2f2f2" }}>
-                    <div style={{ fontSize: 13, color: "#444" }}>{act.title || act.message}</div>
-                    <div style={{ fontSize: 12, color: "#aaa" }}>{act.time || act.timestamp}</div>
-                  </div>
-                ))
-              ) : (
-                <div style={{ fontSize: 13, color: "#aaa" }}>No recent activity</div>
-              )}
-            </div>
-          </div>
-
-          {/* Notifications / Alerts summary card */}
-          <div
-            style={{
-              backgroundColor: "#fff",
-              borderRadius: "12px",
-              boxShadow: "0 4px 10px rgba(0,0,0,0.05)",
-              padding: "20px",
-            }}
-          >
-            <h3 style={{ color: "#666", fontSize: "14px", fontWeight: "500" }}>Alerts & Pending</h3>
-            <div style={{ marginTop: 10 }}>
-              {notifications.length === 0 ? (
-                <div style={{ color: "#aaa" }}>No alerts</div>
-              ) : (
-                notifications.slice(0, 5).map((n, i) => (
-                  <div key={i} style={{ padding: "8px 0", borderBottom: "1px dashed #f2f2f2" }}>
-                    <strong style={{ fontSize: 13 }}>{n.title}</strong>
-                    <div style={{ fontSize: 12, color: "#777" }}>{n.detail || n.message}</div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </section>
-
-        {/* Users management section: search / filter / paginate */}
-        <section
-          id="users-section"
-          style={{
-            backgroundColor: "#fff",
-            borderRadius: "12px",
-            margin: "0 30px 30px",
-            padding: "20px",
-            boxShadow: "0 4px 10px rgba(0,0,0,0.05)",
-          }}
-        >
-          <h3 style={{ marginBottom: "10px", fontWeight: "600" }}>User Management</h3>
-          <p style={{ color: "#777", marginTop: 0 }}>
-            Search, filter and paginate through users. Use controls in the top bar to refine results.
+          <h2 style={{ margin: 0, color: "#4f46e5" }}>Admin Panel</h2>
+          <p style={{ color: "#6b7280", fontSize: 13, marginTop: 8 }}>
+            Manage users, view analytics, monitor system activity, and configure settings.
           </p>
 
-          <div style={{ marginTop: 16 }}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr style={{ textAlign: "left", borderBottom: "1px solid #eee" }}>
-                  <th style={{ padding: "8px 6px" }}>Name</th>
-                  <th style={{ padding: "8px 6px" }}>Email</th>
-                  <th style={{ padding: "8px 6px" }}>Status</th>
-                  <th style={{ padding: "8px 6px" }}>Registered</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} style={{ padding: 12, color: "#999" }}>
-                      No users found.
-                    </td>
-                  </tr>
-                ) : (
-                  users.map((u) => (
-                    <tr key={u.id || u._id} style={{ borderBottom: "1px solid #fafafa" }}>
-                      <td style={{ padding: "10px 6px" }}>{u.name}</td>
-                      <td style={{ padding: "10px 6px" }}>{u.email}</td>
-                      <td style={{ padding: "10px 6px" }}>{u.status || u.accountStatus || "—"}</td>
-                      <td style={{ padding: "10px 6px" }}>{new Date(u.createdAt || u.registeredAt || Date.now()).toLocaleDateString()}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+          <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 10 }}>
+            {[
+              { label: "Dashboard", action: () => window.scrollTo({ top: 0, behavior: "smooth" }) },
+              { label: "User Management", action: () => navigate("/admin/users") },
+              { label: "Notification Center", action: () => navigate("/admin/notifications") },
+              { label: "Record Management", action: () => navigate("/admin/records") },
+              { label: "Reports", action: () => document.getElementById("reports-section")?.scrollIntoView({ behavior: "smooth" }) },
+            
+              
+            ].map((item) => (
+              <button
+                key={item.label}
+                onClick={item.action}
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  border: "1px solid #eef2ff",
+                  background: "linear-gradient(90deg,#eef2ff,#fff)",
+                  cursor: "pointer",
+                  textAlign: "left",
+                  fontWeight: 600,
+                  color: "#111827",
+                }}
+              >
+                {item.label}
+              </button>
+            ))}
 
-            {/* pagination controls */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12 }}>
-              <div style={{ color: "#777" }}>
-                Page {usersPage} of {usersTotalPages}
+            <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+              <button
+                onClick={handleLogout}
+                style={{
+                  flex: 1,
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  background: "#ef4444",
+                  color: "#fff",
+                  border: "none",
+                  cursor: "pointer",
+                  fontWeight: 600,
+                }}
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </aside>
+
+        {/* Right: Main content */}
+        <main>
+          {/* Welcome Header */}
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: 16,
+              padding: 24,
+              boxShadow: "0 10px 25px rgba(0,0,0,0.06)",
+              marginBottom: 16,
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+              <div>
+                <h1 style={{ color: "#111827", margin: 0 }}>
+                  Welcome{admin?.name ? `, ${admin.name}` : ""} 🎉
+                </h1>
+                <p style={{ color: "#6b7280", marginTop: 6 }}>
+                  Manage users, monitor system activity, and access administrative tools.
+                </p>
               </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button
-                  onClick={() => handleUsersPage(usersPage - 1)}
-                  disabled={usersPage <= 1}
+
+              <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
+                {/* Notifications summary */}
+                <div
+                  title="Notifications"
+                  onClick={() => navigate("/admin/notifications")}
                   style={{
+                    position: "relative",
+                    cursor: "pointer",
                     padding: "8px 12px",
-                    borderRadius: 8,
-                    border: "1px solid #ddd",
-                    background: usersPage <= 1 ? "#f5f5f5" : "#fff",
-                    cursor: usersPage <= 1 ? "not-allowed" : "pointer",
+                    background: "#f5f5f7",
+                    borderRadius: 10,
+                    fontSize: 18,
+                    transition: "background 0.2s",
                   }}
+                  onMouseOver={(e) => (e.currentTarget.style.background = "#eef2ff")}
+                  onMouseOut={(e) => (e.currentTarget.style.background = "#f5f5f7")}
                 >
-                  Prev
-                </button>
-                <button
-                  onClick={() => handleUsersPage(usersPage + 1)}
-                  disabled={usersPage >= usersTotalPages}
-                  style={{
-                    padding: "8px 12px",
-                    borderRadius: 8,
-                    border: "1px solid #ddd",
-                    background: usersPage >= usersTotalPages ? "#f5f5f5" : "#fff",
-                    cursor: usersPage >= usersTotalPages ? "not-allowed" : "pointer",
-                  }}
-                >
-                  Next
-                </button>
+                  🔔
+                  {unreadNotificationCount > 0 && (
+                    <span
+                      style={{
+                        position: "absolute",
+                        top: -6,
+                        right: -6,
+                        background: "#ef4444",
+                        color: "#fff",
+                        borderRadius: "50%",
+                        width: 20,
+                        height: 20,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: 12,
+                        fontWeight: 700,
+                      }}
+                    >
+                      {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
+                    </span>
+                  )}
+                </div>
+
+                {admin && (
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                    <div
+                      style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: "50%",
+                        background: "#eef2ff",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        overflow: "hidden",
+                      }}
+                    >
+                      {admin.avatar ? (
+                        <img
+                          src={admin.avatar}
+                          alt="profile"
+                          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                        />
+                      ) : (
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 24 24"
+                          width="20"
+                          height="20"
+                          fill="#4f46e5"
+                        >
+                          <path d="M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 5v2h20v-2c0-3.3-6.7-5-10-5z" />
+                        </svg>
+                      )}
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: 13, color: "#6b7280" }}>Admin Account</div>
+                      <div style={{ fontWeight: 700, color: "#111827" }}>{admin.name || "—"}</div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
-        </section>
 
-        {/* Chart placeholder / Reports */}
-        <section
-          style={{
-            backgroundColor: "#fff",
-            borderRadius: "12px",
-            margin: "0 30px 30px",
-            padding: "30px",
-            boxShadow: "0 4px 10px rgba(0,0,0,0.05)",
-            textAlign: "center",
-          }}
-        >
-          <h3 style={{ marginBottom: "10px", fontWeight: "600" }}>Reports & Analytics</h3>
-          <p style={{ color: "#777" }}>📈 Chart visualizations and deeper analytics are available here.</p>
-        </section>
-      </main>
+          {/* Search and Filter Bar */}
+          
+
+          {/* Overview / Summary Cards */}
+          <section
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+              gap: 16,
+              marginBottom: 16,
+            }}
+          >
+            <div
+              style={{
+                backgroundColor: "#fff",
+                borderRadius: 16,
+                boxShadow: "0 10px 25px rgba(0,0,0,0.06)",
+                padding: 20,
+              }}
+            >
+              <h3 style={{ color: "#6b7280", fontSize: 14, fontWeight: 500, margin: 0 }}>Total Users</h3>
+              <p style={{ color: "#4f46e5", fontSize: 32, fontWeight: 700, marginTop: 10, marginBottom: 4 }}>
+                {summary.totalUsers}
+              </p>
+              <div style={{ display: "flex", gap: 12, marginTop: 8, fontSize: 12, color: "#6b7280" }}>
+                <span>
+                  <strong style={{ color: "#dc2626" }}>{summary.totalAdmins}</strong> Admin{summary.totalAdmins !== "—" && summary.totalAdmins !== 1 ? "s" : ""}
+                </span>
+                <span>·</span>
+                <span>
+                  <strong style={{ color: "#2563eb" }}>{summary.totalCounselors}</strong> Counselor{summary.totalCounselors !== "—" && summary.totalCounselors !== 1 ? "s" : ""}
+                </span>
+              </div>
+            </div>
+
+            <div
+              style={{
+                backgroundColor: "#fff",
+                borderRadius: 16,
+                boxShadow: "0 10px 25px rgba(0,0,0,0.06)",
+                padding: 20,
+              }}
+            >
+              <h3 style={{ color: "#6b7280", fontSize: 14, fontWeight: 500, margin: 0 }}>Active / Inactive</h3>
+              <p style={{ color: "#10b981", fontSize: 24, fontWeight: 700, marginTop: 10, marginBottom: 0 }}>
+                {summary.active} active · {summary.inactive} inactive
+              </p>
+            </div>
+
+            <div
+              style={{
+                backgroundColor: "#fff",
+                borderRadius: 16,
+                boxShadow: "0 10px 25px rgba(0,0,0,0.06)",
+                padding: 20,
+                maxHeight: 300,
+                overflowY: "auto",
+              }}
+            >
+              <h3 style={{ color: "#6b7280", fontSize: 14, fontWeight: 500, margin: 0, marginBottom: 12 }}>Recent Activity</h3>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {summary.recentActivity && summary.recentActivity.length > 0 ? (
+                  summary.recentActivity.map((act) => (
+                    <div 
+                      key={act.id || act.timestamp} 
+                      style={{ 
+                        padding: "10px 12px", 
+                        borderBottom: "1px solid #f3f4f6",
+                        borderRadius: 8,
+                        background: act.priority === "high" || act.priority === "critical" 
+                          ? "rgba(239,68,68,0.05)" 
+                          : "transparent",
+                        transition: "background 0.2s",
+                      }}
+                      onMouseOver={(e) => {
+                        if (act.priority !== "high" && act.priority !== "critical") {
+                          e.currentTarget.style.background = "#f9fafb";
+                        }
+                      }}
+                      onMouseOut={(e) => {
+                        if (act.priority !== "high" && act.priority !== "critical") {
+                          e.currentTarget.style.background = "transparent";
+                        }
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ 
+                            fontSize: 13, 
+                            color: "#111827", 
+                            fontWeight: 600,
+                            marginBottom: 4,
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6,
+                          }}>
+                            {act.title || act.message}
+                            {(act.priority === "high" || act.priority === "critical") && (
+                              <span
+                                style={{
+                                  padding: "2px 6px",
+                                  borderRadius: 4,
+                                  background: "#dc2626",
+                                  color: "#fff",
+                                  fontSize: 10,
+                                  fontWeight: 600,
+                                }}
+                              >
+                                {act.priority === "critical" ? "Critical" : "High"}
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: 12, color: "#6b7280", lineHeight: 1.4 }}>
+                            {act.description}
+                          </div>
+                          <div style={{ 
+                            fontSize: 11, 
+                            color: "#9ca3af", 
+                            marginTop: 4,
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                          }}>
+                            <span>{act.time || new Date(act.timestamp).toLocaleString()}</span>
+                            {act.category && (
+                              <>
+                                <span>·</span>
+                                <span style={{ 
+                                  padding: "2px 6px",
+                                  borderRadius: 4,
+                                  background: act.category === "User Activity" 
+                                    ? "rgba(59,130,246,0.1)" 
+                                    : act.category === "Security Alert"
+                                    ? "rgba(239,68,68,0.1)"
+                                    : "rgba(107,114,128,0.1)",
+                                  color: act.category === "User Activity"
+                                    ? "#2563eb"
+                                    : act.category === "Security Alert"
+                                    ? "#dc2626"
+                                    : "#6b7280",
+                                  fontSize: 10,
+                                  fontWeight: 500,
+                                }}>
+                                  {act.category}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div style={{ 
+                    fontSize: 13, 
+                    color: "#9ca3af", 
+                    textAlign: "center",
+                    padding: "20px 0",
+                  }}>
+                    No recent activity
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Notifications / Alerts summary card */}
+            <div
+              style={{
+                backgroundColor: "#fff",
+                borderRadius: 16,
+                boxShadow: "0 10px 25px rgba(0,0,0,0.06)",
+                padding: 20,
+                cursor: "pointer",
+              }}
+              onClick={() => navigate("/admin/notifications")}
+              onMouseOver={(e) => (e.currentTarget.style.boxShadow = "0 10px 25px rgba(79,70,229,0.15)")}
+              onMouseOut={(e) => (e.currentTarget.style.boxShadow = "0 10px 25px rgba(0,0,0,0.06)")}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                <h3 style={{ color: "#6b7280", fontSize: 14, fontWeight: 500, margin: 0 }}>Recent Notifications</h3>
+                {unreadNotificationCount > 0 && (
+                  <span
+                    style={{
+                      padding: "2px 8px",
+                      borderRadius: 6,
+                      background: "#ef4444",
+                      color: "#fff",
+                      fontSize: 11,
+                      fontWeight: 600,
+                    }}
+                  >
+                    {unreadNotificationCount} new
+                  </span>
+                )}
+              </div>
+              <div style={{ marginTop: 10 }}>
+                {notifications.length === 0 ? (
+                  <div style={{ color: "#9ca3af", fontSize: 13 }}>No new notifications</div>
+                ) : (
+                  notifications.slice(0, 3).map((n, i) => (
+                    <div key={i} style={{ padding: "8px 0", borderBottom: "1px dashed #f3f4f6" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                        <strong style={{ fontSize: 13, color: "#111827" }}>{n.title}</strong>
+                        {n.priority === "critical" && (
+                          <span
+                            style={{
+                              padding: "2px 6px",
+                              borderRadius: 4,
+                              background: "#dc2626",
+                              color: "#fff",
+                              fontSize: 10,
+                              fontWeight: 600,
+                            }}
+                          >
+                            Critical
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: 12, color: "#6b7280" }}>{n.description}</div>
+                    </div>
+                  ))
+                )}
+              </div>
+              {notifications.length > 0 && (
+                <div style={{ marginTop: 10, textAlign: "right" }}>
+                  <span style={{ color: "#4f46e5", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                    View All →
+                  </span>
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* Users management section */}
+          <section
+            id="users-section"
+            style={{
+              backgroundColor: "#fff",
+              borderRadius: 16,
+              padding: 24,
+              boxShadow: "0 10px 25px rgba(0,0,0,0.06)",
+              marginBottom: 16,
+            }}
+          >
+            <div style={{ marginBottom: 16 }}>
+              <h3 style={{ margin: 0, color: "#4f46e5" }}>User Management</h3>
+              <p style={{ margin: 0, color: "#6b7280", fontSize: 13, marginTop: 6 }}>
+                Search, filter and paginate through users. Use controls above to refine results.
+              </p>
+            </div>
+
+            <div style={{ marginTop: 16 }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr style={{ textAlign: "left", borderBottom: "2px solid #e6e9ef" }}>
+                    <th style={{ padding: "12px 8px", color: "#6b7280", fontSize: 13, fontWeight: 600 }}>Name</th>
+                    <th style={{ padding: "12px 8px", color: "#6b7280", fontSize: 13, fontWeight: 600 }}>Email</th>
+                    <th style={{ padding: "12px 8px", color: "#6b7280", fontSize: 13, fontWeight: 600 }}>Status</th>
+                    <th style={{ padding: "12px 8px", color: "#6b7280", fontSize: 13, fontWeight: 600 }}>Registered</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} style={{ padding: 24, color: "#9ca3af", textAlign: "center" }}>
+                        No users found.
+                      </td>
+                    </tr>
+                  ) : (
+                    users.map((u) => (
+                      <tr key={u.id || u._id} style={{ borderBottom: "1px solid #f3f4f6" }}>
+                        <td style={{ padding: "14px 8px", color: "#111827", fontWeight: 500 }}>{u.name}</td>
+                        <td style={{ padding: "14px 8px", color: "#6b7280" }}>{u.email}</td>
+                        <td style={{ padding: "14px 8px" }}>
+                          <span
+                            style={{
+                              padding: "4px 10px",
+                              borderRadius: 8,
+                              fontSize: 12,
+                              fontWeight: 600,
+                              background:
+                                (u.status || u.accountStatus) === "active"
+                                  ? "rgba(16,185,129,0.08)"
+                                  : (u.status || u.accountStatus) === "pending"
+                                  ? "rgba(245,158,11,0.08)"
+                                  : "rgba(148,163,184,0.06)",
+                              color:
+                                (u.status || u.accountStatus) === "active"
+                                  ? "#065f46"
+                                  : (u.status || u.accountStatus) === "pending"
+                                  ? "#92400e"
+                                  : "#374151",
+                            }}
+                          >
+                            {u.status || u.accountStatus || "—"}
+                          </span>
+                        </td>
+                        <td style={{ padding: "14px 8px", color: "#6b7280", fontSize: 13 }}>
+                          {new Date(u.createdAt || u.registeredAt || Date.now()).toLocaleDateString()}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+
+              {/* Pagination controls */}
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginTop: 20,
+                  paddingTop: 16,
+                  borderTop: "1px solid #f3f4f6",
+                }}
+              >
+                <div style={{ color: "#6b7280", fontSize: 14 }}>
+                  Page {usersPage} of {usersTotalPages}
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    onClick={() => handleUsersPage(usersPage - 1)}
+                    disabled={usersPage <= 1}
+                    style={{
+                      padding: "8px 16px",
+                      borderRadius: 10,
+                      border: "1px solid #e6e9ef",
+                      background: usersPage <= 1 ? "#f9fafb" : "#fff",
+                      cursor: usersPage <= 1 ? "not-allowed" : "pointer",
+                      color: usersPage <= 1 ? "#9ca3af" : "#111827",
+                      fontWeight: 600,
+                    }}
+                  >
+                    Prev
+                  </button>
+                  <button
+                    onClick={() => handleUsersPage(usersPage + 1)}
+                    disabled={usersPage >= usersTotalPages}
+                    style={{
+                      padding: "8px 16px",
+                      borderRadius: 10,
+                      border: "1px solid #e6e9ef",
+                      background: usersPage >= usersTotalPages ? "#f9fafb" : "#fff",
+                      cursor: usersPage >= usersTotalPages ? "not-allowed" : "pointer",
+                      color: usersPage >= usersTotalPages ? "#9ca3af" : "#111827",
+                      fontWeight: 600,
+                    }}
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Reports & Analytics */}
+          <section
+            id="reports-section"
+            style={{
+              backgroundColor: "#fff",
+              borderRadius: 16,
+              padding: 24,
+              boxShadow: "0 10px 25px rgba(0,0,0,0.06)",
+              textAlign: "center",
+            }}
+          >
+            <h3 style={{ margin: 0, color: "#4f46e5" }}>Reports & Analytics</h3>
+            <p style={{ color: "#6b7280", marginTop: 8 }}>
+              📈 Chart visualizations and deeper analytics are available here.
+            </p>
+          </section>
+        </main>
+      </div>
     </div>
   );
 }

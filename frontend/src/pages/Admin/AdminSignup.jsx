@@ -29,8 +29,18 @@ const AdminSignup = () => {
 
         try {
             const res = await axios.post("http://localhost:5000/api/admin/signup", formData);
-            setSuccess(res.data.message || "Admin account created successfully!");
-            setTimeout(() => navigate("/adminlogin"), 1500);
+            
+            // If token is returned, store it and redirect to dashboard
+            if (res.data.token) {
+                localStorage.setItem("adminToken", res.data.token);
+                localStorage.setItem("admin", JSON.stringify(res.data.admin));
+                setSuccess(res.data.message || "Admin account created successfully!");
+                setTimeout(() => navigate("/admindashboard", { replace: true }), 1500);
+            } else {
+                // If no token, redirect to login
+                setSuccess(res.data.message || "Admin account created successfully!");
+                setTimeout(() => navigate("/adminlogin"), 1500);
+            }
         } catch (err) {
             setError(err.response?.data?.message || "Signup failed. Try again.");
         } finally {
