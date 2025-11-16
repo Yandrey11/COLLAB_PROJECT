@@ -76,7 +76,15 @@ import googleDriveRoutes from "./routes/googleDriveRoutes.js";
 import reportRoutes from "./routes/reportRoutes.js";
 
 import adminTokenRoutes from "./routes/admin/adminTokenRoutes.js";
+import sessionRoutes from "./routes/admin/sessionRoutes.js";
+import notificationRoutes from "./routes/admin/notificationRoutes.js";
+import userManagementRoutes from "./routes/admin/userManagementRoutes.js";
+import adminRecordRoutes from "./routes/admin/adminRecordRoutes.js";
 app.use("/api/admin", adminTokenRoutes);
+app.use("/api/admin", sessionRoutes);
+app.use("/api/admin", notificationRoutes);
+app.use("/api/admin", userManagementRoutes);
+app.use("/api/admin", adminRecordRoutes);
 
 // ✅ Register routes AFTER middleware
 app.use("/api/auth", authRoutes);
