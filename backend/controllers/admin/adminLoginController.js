@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import Admin from "../../models/Admin.js";
+import User from "../../models/User.js";
 import axios from "axios";
 
 // ✅ Verify Google reCAPTCHA helper
@@ -27,7 +28,27 @@ export const adminLogin = async (req, res) => {
       return res.status(400).json({ message: "reCAPTCHA verification failed" });
     }
 
-    const admin = await Admin.findOne({ email });
+    // Check in Admin collection first
+    let admin = await Admin.findOne({ email });
+    let accountType = "admin";
+
+    // If not found in Admin collection, check User collection for admin role
+    if (!admin) {
+      const user = await User.findOne({ email });
+      
+      if (user && user.role === "admin") {
+        // User has admin role, treat as admin
+        admin = {
+          _id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          matchPassword: user.matchPassword.bind(user),
+        };
+        accountType = "user";
+      }
+    }
+
     if (!admin) {
       return res.status(404).json({ message: "Admin not found" });
     }
@@ -38,7 +59,7 @@ export const adminLogin = async (req, res) => {
     }
 
     const token = jwt.sign(
-      { id: admin._id, role: admin.role },
+      { id: admin._id, role: admin.role || "admin" },
       process.env.JWT_SECRET,
       { expiresIn: "1d" }
     );
@@ -50,7 +71,7 @@ export const adminLogin = async (req, res) => {
         id: admin._id,
         name: admin.name,
         email: admin.email,
-        role: admin.role,
+        role: admin.role || "admin",
       },
     });
   } catch (error) {

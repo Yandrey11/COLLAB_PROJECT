@@ -1,4 +1,5 @@
 import Admin from "../../models/Admin.js";
+import jwt from "jsonwebtoken";
 
 // 🟩 ADMIN SIGNUP (no reCAPTCHA)
 export const adminSignup = async (req, res) => {
@@ -12,8 +13,16 @@ export const adminSignup = async (req, res) => {
 
     const admin = await Admin.create({ name, email, password });
 
+    // Generate JWT token for automatic login after signup
+    const token = jwt.sign(
+      { id: admin._id, role: admin.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "1d" }
+    );
+
     res.status(201).json({
       message: "✅ Admin account created successfully",
+      token, // Return token for automatic login
       admin: {
         id: admin._id,
         name: admin.name,

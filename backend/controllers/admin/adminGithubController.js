@@ -1,6 +1,7 @@
 // controllers/admin/adminGithubController.js
 import jwt from "jsonwebtoken";
 import Admin from "../../models/Admin.js";
+import { deactivateSession, deactivateAllUserSessions } from "./sessionController.js";
 
 export const githubLoginSuccess = async (req, res) => {
   if (!req.user) {
@@ -42,11 +43,33 @@ export const getAdminProfile = async (req, res) => {
   }
 };
 
-export const logoutAdmin = (req, res) => {
-  res.clearCookie("adminToken");
-  req.logout(() => {
+export const logoutAdmin = async (req, res) => {
+  try {
+    // Get token from cookie or Authorization header
+    const token = req.cookies.adminToken || 
+                  (req.headers.authorization?.startsWith("Bearer ") 
+                    ? req.headers.authorization.split(" ")[1] 
+                    : null);
+
+    // Deactivate session if token exists
+    if (token) {
+      await deactivateSession(token);
+    }
+
+    // Also try to deactivate by admin ID if available
+    if (req.user?._id) {
+      await deactivateAllUserSessions(req.user._id, req.user.email);
+    }
+
+    res.clearCookie("adminToken");
+    req.logout(() => {
+      res.json({ message: "Logged out successfully" });
+    });
+  } catch (error) {
+    console.error("❌ Admin logout error:", error);
+    res.clearCookie("adminToken");
     res.json({ message: "Logged out successfully" });
-  });
+  }
 };
 
 
