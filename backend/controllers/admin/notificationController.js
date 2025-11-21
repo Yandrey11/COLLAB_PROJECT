@@ -3,7 +3,7 @@ import Notification from "../../models/Notification.js";
 // Get all notifications with filters and pagination
 export const getNotifications = async (req, res) => {
   try {
-    const { page = 1, limit = 20, status = "all", category = "all" } = req.query;
+    const { page = 1, limit = 20, status = "all", category = "all", search = "" } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     // Build query
@@ -15,6 +15,14 @@ export const getNotifications = async (req, res) => {
 
     if (category !== "all") {
       query.category = category;
+    }
+
+    // Add search functionality - search in title and description
+    if (search && search.trim() !== "") {
+      query.$or = [
+        { title: { $regex: search.trim(), $options: "i" } },
+        { description: { $regex: search.trim(), $options: "i" } },
+      ];
     }
 
     // Get notifications with pagination, sorted by priority and date

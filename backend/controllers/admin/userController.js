@@ -55,7 +55,7 @@ export const getAllUsers = async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
-        role: user.role || "user",
+        role: user.role || "counselor",
         createdAt: user.createdAt,
         isOnline,
         loginTime: session?.loginTime || null,

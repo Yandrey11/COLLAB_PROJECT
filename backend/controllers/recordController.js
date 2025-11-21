@@ -334,7 +334,7 @@ const uploadRecordToDrive = async (record, req) => {
 
     // ✅ Create notification for admin about PDF generation
     try {
-      const userRole = req.user?.role || "user";
+      const userRole = req.user?.role || "counselor";
       const userName = req.user?.name || req.user?.email || record.counselor || "Unknown User";
       
       await createNotification({
@@ -630,7 +630,7 @@ export const uploadToDrive = async (req, res) => {
 
     // ✅ Create notification for admin about PDF generation
     try {
-      const userRole = req.user?.role || "user";
+      const userRole = req.user?.role || "counselor";
       const userName = req.user?.name || req.user?.email || record.counselor || "Unknown User";
       
       await createNotification({

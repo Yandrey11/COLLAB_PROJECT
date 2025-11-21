@@ -1,5 +1,8 @@
 import User from "../models/User.js";
+import Admin from "../models/Admin.js";
+import GoogleUser from "../models/GoogleUser.js";
 import jwt from "jsonwebtoken";
+import { validatePassword } from "../utils/passwordValidation.js";
 import { createSession } from "./admin/sessionController.js";
 import { createNotification } from "./admin/notificationController.js";
 
@@ -10,10 +13,21 @@ export const signupUser = async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
-    // ✅ Check if user already exists
+    // ✅ Check if user already exists (in any collection)
     const existingUser = await User.findOne({ email });
-    if (existingUser)
+    const existingAdmin = await Admin.findOne({ email });
+    const existingGoogleUser = await GoogleUser.findOne({ email });
+    if (existingUser || existingAdmin || existingGoogleUser)
       return res.status(400).json({ message: "Email already registered" });
+
+    // ✅ Password strength validation
+    const { isValid, errors } = validatePassword(password);
+    if (!isValid) {
+      return res.status(400).json({
+        message: "Password does not meet the security requirements.",
+        details: errors,
+      });
+    }
 
     // ✅ Create new user (password will be hashed by pre-save hook)
     const newUser = new User({ name, email, password });

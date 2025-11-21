@@ -60,7 +60,7 @@ export const generateReport = async (req, res) => {
 
     // ✅ Create notification for admin about report generation
     try {
-      const userRole = req.user?.role || "user";
+      const userRole = req.user?.role || "counselor";
       const userName = req.user?.name || req.user?.email || "Unknown User";
       
       await createNotification({

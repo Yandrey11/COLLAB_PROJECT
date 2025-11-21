@@ -187,7 +187,7 @@ export const createSession = async (user, token, req) => {
       token,
       email: user.email,
       name: user.name,
-      role: user.role || "user",
+      role: user.role || "counselor",
       loginTime: new Date(),
       lastActivity: new Date(),
       ipAddress: req.ip || req.connection.remoteAddress,

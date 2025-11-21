@@ -1,5 +1,8 @@
 import User from "../models/user.js";
+import Admin from "../models/Admin.js";
+import GoogleUser from "../models/GoogleUser.js";
 import jwt from "jsonwebtoken";
+import { validatePassword } from "../utils/passwordValidation.js";
 
 export const signup = async (req, res) => {
   try {
@@ -9,15 +12,26 @@ export const signup = async (req, res) => {
       return res.status(400).json({ message: "All fields are required" });
     }
 
+    // Password strength validation
+    const { isValid, errors } = validatePassword(password);
+    if (!isValid) {
+      return res.status(400).json({
+        message: "Password does not meet the security requirements.",
+        details: errors,
+      });
+    }
+
     // Check if email already exists
     const existingUser = await User.findOne({ email });
-    if (existingUser) {
+    const existingAdmin = await Admin.findOne({ email });
+    const existingGoogleUser = await GoogleUser.findOne({ email });
+    if (existingUser || existingAdmin || existingGoogleUser) {
       return res.status(400).json({ message: "Email already registered" });
     }
 
-    // ✅ Create new user (password automatically hashed via pre-save)
-const newUser = new User({ name, email, password });
-await newUser.save();
+    // Create new user (password automatically hashed via pre-save)
+    const newUser = new User({ name, email, password });
+    await newUser.save();
 
     // Generate JWT token
     const token = jwt.sign(

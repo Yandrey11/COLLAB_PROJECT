@@ -1,14 +1,28 @@
 import Admin from "../../models/Admin.js";
+import User from "../../models/User.js";
+import GoogleUser from "../../models/GoogleUser.js";
 import jwt from "jsonwebtoken";
+import { validatePassword } from "../../utils/passwordValidation.js";
 
-// 🟩 ADMIN SIGNUP (no reCAPTCHA)
+// ADMIN SIGNUP (no reCAPTCHA)
 export const adminSignup = async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
     const existingAdmin = await Admin.findOne({ email });
-    if (existingAdmin) {
-      return res.status(400).json({ message: "Admin already exists" });
+    const existingUser = await User.findOne({ email });
+    const existingGoogleUser = await GoogleUser.findOne({ email });
+    if (existingAdmin || existingUser || existingGoogleUser) {
+      return res.status(400).json({ message: "Email already in use" });
+    }
+
+    // Password strength validation
+    const { isValid, errors } = validatePassword(password);
+    if (!isValid) {
+      return res.status(400).json({
+        message: "Password does not meet the security requirements.",
+        details: errors,
+      });
     }
 
     const admin = await Admin.create({ name, email, password });

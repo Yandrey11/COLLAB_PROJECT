@@ -3,6 +3,8 @@ import GoogleUser from "../../models/GoogleUser.js";
 import Admin from "../../models/Admin.js";
 import Session from "../../models/Session.js";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
+import nodemailer from "nodemailer";
 import { createNotification } from "./notificationController.js";
 
 // Get all users with filters and pagination
@@ -47,13 +49,13 @@ export const getAllUsers = async (req, res) => {
         { name: { $regex: search, $options: "i" } },
       ];
     }
-    // Google users don't have role field, so we only filter by role if it's "all" or we want to include them
-    // For now, include all Google users when role is "all" or "user"
-    const googleUsers = role === "all" || role === "user" 
-      ? await GoogleUser.find(googleUsersQuery)
-          .sort({ createdAt: -1 })
-          .lean()
-      : [];
+    // Apply role filter to Google users (they now have a role field)
+    if (role !== "all") {
+      googleUsersQuery.role = role;
+    }
+    const googleUsers = await GoogleUser.find(googleUsersQuery)
+      .sort({ createdAt: -1 })
+      .lean();
 
     // Get admins (apply same filters where applicable)
     const adminQuery = {};
@@ -117,7 +119,7 @@ export const getAllUsers = async (req, res) => {
         id: userId,
         name: user.name,
         email: user.email,
-        role: user.role || "user", // Google users default to "user", admins have "admin"
+        role: user.role || (user.userType === "admin" ? "admin" : "counselor"), // Default role based on user type
         accountStatus: user.accountStatus || "active", // Keep for enable/disable functionality
         isOnline: isOnline, // true if user has at least one active session
         status: isOnline ? "active" : "offline", // Display status: "active" (online) or "offline"
@@ -158,14 +160,58 @@ export const getAllUsers = async (req, res) => {
   }
 };
 
+// Helper function to send password setup email
+const sendPasswordSetupEmail = async (email, name, token) => {
+  try {
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    const setupLink = `${process.env.FRONTEND_URL || "http://localhost:5173"}/set-password?token=${token}&email=${encodeURIComponent(email)}`;
+
+    const mailOptions = {
+      from: `"Support Team" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: "Set Your Password - Account Created",
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #4f46e5;">Welcome ${name}!</h2>
+          <p>Your account has been created successfully. To complete your account setup, please set your password by clicking the link below:</p>
+          <p style="margin: 30px 0;">
+            <a href="${setupLink}" style="background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block;">
+              Set Your Password
+            </a>
+          </p>
+          <p>Or copy and paste this link into your browser:</p>
+          <p style="color: #6b7280; word-break: break-all;">${setupLink}</p>
+          <p style="color: #9ca3af; font-size: 12px; margin-top: 30px;">
+            This link will expire in 24 hours. If you didn't request this account, please contact support.
+          </p>
+        </div>
+      `,
+      text: `Welcome ${name}!\n\nYour account has been created successfully. To complete your account setup, please set your password by visiting this link:\n\n${setupLink}\n\nThis link will expire in 24 hours.`,
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(`✅ Password setup email sent to: ${email}`);
+  } catch (error) {
+    console.error("❌ Error sending password setup email:", error);
+    throw error;
+  }
+};
+
 // Create a new user
 export const createUser = async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, role } = req.body;
 
     // Validation
-    if (!name || !email || !password) {
-      return res.status(400).json({ message: "Name, email, and password are required" });
+    if (!name || !email) {
+      return res.status(400).json({ message: "Name and email are required" });
     }
 
     // Email format validation
@@ -175,26 +221,29 @@ export const createUser = async (req, res) => {
     }
 
     // Role validation
-    const validRoles = ["user", "counselor", "admin"];
-    const userRole = role || "user";
+    const validRoles = ["counselor", "admin"];
+    const userRole = role || "counselor";
     if (role && !validRoles.includes(role)) {
-      return res.status(400).json({ message: "Invalid role. Must be: user, counselor, or admin" });
+      return res.status(400).json({ message: "Invalid role. Must be: counselor or admin" });
     }
 
-    // Password strength validation
-    if (password.length < 6) {
-      return res.status(400).json({ message: "Password must be at least 6 characters long" });
-    }
-
-    // Check for duplicate email in both User and Admin collections
+    // Check for duplicate email across User, Admin, and GoogleUser collections
     const existingUser = await User.findOne({ email });
     const existingAdmin = await Admin.findOne({ email });
-    if (existingUser || existingAdmin) {
+    const existingGoogleUser = await GoogleUser.findOne({ email });
+    if (existingUser || existingAdmin || existingGoogleUser) {
       return res.status(400).json({ message: "Email already exists" });
     }
 
+    // Generate secure token for password setup
+    const setupToken = crypto.randomBytes(32).toString("hex");
+    const tokenExpires = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
+
     let newAccount;
     let accountType;
+
+    // Generate a temporary password (will be replaced when user sets their password)
+    const tempPassword = crypto.randomBytes(16).toString("hex");
 
     // Save to appropriate collection based on role
     if (userRole === "admin") {
@@ -202,29 +251,42 @@ export const createUser = async (req, res) => {
       newAccount = new Admin({
         name,
         email,
-        password, // Will be hashed by pre-save hook
+        password: tempPassword, // Temporary password, will be changed
         role: "admin",
       });
+      // Store token in resetPasswordCode field (reusing existing field)
+      newAccount.resetPasswordCode = setupToken;
+      newAccount.resetPasswordExpires = new Date(tokenExpires);
       await newAccount.save();
       accountType = "admin";
     } else {
-      // Save to User collection (for "user" or "counselor" roles)
+      // Save to User collection (for counselor roles)
       newAccount = new User({
         name,
         email,
-        password, // Will be hashed by pre-save hook
+        password: tempPassword, // Temporary password, will be changed
         role: userRole,
         accountStatus: "active",
+        resetPasswordCode: setupToken,
+        resetPasswordExpires: new Date(tokenExpires),
       });
       await newAccount.save();
-      accountType = "user";
+      accountType = "counselor";
+    }
+
+    // Send password setup email
+    try {
+      await sendPasswordSetupEmail(email, name, setupToken);
+    } catch (emailError) {
+      console.error("❌ Failed to send password setup email:", emailError);
+      // Continue even if email fails - user can request password reset later
     }
 
     // Create notification
     try {
       await createNotification({
-        title: `New ${accountType === "admin" ? "Admin" : "User"} Created`,
-        description: `Admin created a new ${accountType === "admin" ? "admin" : "user"} account: ${email} (Role: ${userRole})`,
+        title: `New ${accountType === "admin" ? "Admin" : "Counselor"} Created`,
+        description: `Admin created a new ${accountType === "admin" ? "admin" : "counselor"} account: ${email} (Role: ${userRole})`,
         category: "User Activity",
         priority: "medium",
         metadata: { 
@@ -239,7 +301,7 @@ export const createUser = async (req, res) => {
     }
 
     res.status(201).json({
-      message: `${accountType === "admin" ? "Admin" : "User"} created successfully`,
+      message: `${accountType === "admin" ? "Admin" : "Counselor"} created successfully`,
       user: {
         id: newAccount._id,
         name: newAccount.name,
@@ -302,20 +364,20 @@ export const updateUser = async (req, res) => {
     // Update fields
     if (name) user.name = name;
     
-    // Role can only be updated for regular users and admins (not Google users)
+    // Role can be updated for all user types (regular, admin, and Google users)
     if (role) {
-      if (userType === "google") {
-        return res.status(400).json({ message: "Cannot update role for Google-authenticated users" });
-      }
-      
-      const validRoles = ["user", "counselor", "admin"];
+      const validRoles = ["counselor", "admin"];
       if (!validRoles.includes(role)) {
         return res.status(400).json({ message: "Invalid role" });
       }
       
+      // For Google users, just update the role field (they stay in GoogleUser collection)
+      if (userType === "google") {
+        user.role = role;
+      }
       // If changing to admin role, need to move to Admin collection
       // If changing from admin to user/counselor, need to move to User collection
-      if (userType === "admin" && role !== "admin") {
+      else if (userType === "admin" && role !== "admin") {
         // Move from Admin to User collection
         const newUser = new User({
           name: user.name,
@@ -368,7 +430,7 @@ export const updateUser = async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
-        role: user.role || (userType === "google" ? "user" : userType === "admin" ? "admin" : "user"),
+        role: user.role || (userType === "admin" ? "admin" : userType === "google" ? "counselor" : "counselor"),
       },
     });
   } catch (error) {
@@ -497,20 +559,54 @@ export const deleteUser = async (req, res) => {
   }
 };
 
-// Reset user password (admin-initiated)
+// Helper function to send password reset email
+const sendPasswordResetEmail = async (email, name, token) => {
+  try {
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    const resetLink = `${process.env.FRONTEND_URL || "http://localhost:5173"}/reset-password?token=${token}&email=${encodeURIComponent(email)}`;
+
+    const mailOptions = {
+      from: `"Support Team" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: "Password Reset Request",
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #4f46e5;">Password Reset Request</h2>
+          <p>Hello ${name},</p>
+          <p>You have requested to reset your password. Click the link below to set a new password:</p>
+          <p style="margin: 30px 0;">
+            <a href="${resetLink}" style="background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block;">
+              Reset Password
+            </a>
+          </p>
+          <p>Or copy and paste this link into your browser:</p>
+          <p style="color: #6b7280; word-break: break-all;">${resetLink}</p>
+          <p style="color: #9ca3af; font-size: 12px; margin-top: 30px;">
+            This link will expire in 5 minutes. If you didn't request this password reset, please contact support immediately.
+          </p>
+        </div>
+      `,
+      text: `Hello ${name},\n\nYou have requested to reset your password. Please visit this link to set a new password:\n\n${resetLink}\n\nThis link will expire in 5 minutes.`,
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(`✅ Password reset email sent to: ${email}`);
+  } catch (error) {
+    console.error("❌ Error sending password reset email:", error);
+    throw error;
+  }
+};
+
 export const resetUserPassword = async (req, res) => {
   try {
     const { userId } = req.params;
-    const { newPassword } = req.body;
-
-    if (!newPassword) {
-      return res.status(400).json({ message: "New password is required" });
-    }
-
-    // Password strength validation
-    if (newPassword.length < 6) {
-      return res.status(400).json({ message: "Password must be at least 6 characters long" });
-    }
 
     // Check all collections: User, GoogleUser, Admin
     let user = await User.findById(userId);
@@ -532,20 +628,66 @@ export const resetUserPassword = async (req, res) => {
 
     // Google users don't have passwords (they use OAuth)
     if (userType === "google") {
-      return res.status(400).json({ 
-        message: "Cannot reset password for Google-authenticated users. They use Google OAuth for login." 
-      });
+      const googleUser = user;
+      let localUser = await User.findOne({ email: googleUser.email });
+      let localAdmin = await Admin.findOne({ email: googleUser.email });
+      if (localAdmin) {
+        user = localAdmin;
+        userType = "admin";
+      } else if (localUser) {
+        user = localUser;
+        userType = "regular";
+      } else {
+        const tempPassword = crypto.randomBytes(16).toString("hex");
+        if (googleUser.role === "admin") {
+          user = new Admin({
+            name: googleUser.name,
+            email: googleUser.email,
+            password: tempPassword,
+            role: "admin",
+          });
+          await user.save();
+          userType = "admin";
+        } else {
+          user = new User({
+            name: googleUser.name,
+            email: googleUser.email,
+            password: tempPassword,
+            role: googleUser.role || "counselor",
+            accountStatus: "active",
+          });
+          await user.save();
+          userType = "regular";
+        }
+      }
     }
 
-    // Set new password (will be hashed by pre-save hook)
-    user.password = newPassword;
+    // Generate secure token for password reset
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const tokenExpires = Date.now() + 5 * 60 * 1000; // 5 minutes
+
+    // Store token in resetPasswordCode field
+    user.resetPasswordCode = resetToken;
+    user.resetPasswordExpires = new Date(tokenExpires);
     await user.save();
+
+    // Send password reset email
+    try {
+      await sendPasswordResetEmail(user.email, user.name, resetToken);
+    } catch (emailError) {
+      console.error("❌ Failed to send password reset email:", emailError);
+      // Clear the token if email fails
+      user.resetPasswordCode = null;
+      user.resetPasswordExpires = null;
+      await user.save();
+      return res.status(500).json({ message: "Failed to send password reset email. Please try again." });
+    }
 
     // Create notification
     try {
       await createNotification({
-        title: "Password Reset",
-        description: `Admin reset password for ${userType} account: ${user.email}. User should change password on next login.`,
+        title: "Password Reset Link Sent",
+        description: `Admin sent password reset link to ${userType} account: ${user.email}`,
         category: "Security Alert",
         priority: "high",
         metadata: { userId: user._id, resetBy: req.admin._id, userType },
@@ -555,12 +697,12 @@ export const resetUserPassword = async (req, res) => {
     }
 
     res.status(200).json({
-      message: "Password reset successfully. User will need to use the new password on next login.",
+      message: "Password reset link has been sent to the user's email address.",
       userId: user._id,
     });
   } catch (error) {
-    console.error("❌ Error resetting password:", error);
-    res.status(500).json({ message: "Error resetting password" });
+    console.error("❌ Error sending password reset link:", error);
+    res.status(500).json({ message: "Error sending password reset link" });
   }
 };
 
