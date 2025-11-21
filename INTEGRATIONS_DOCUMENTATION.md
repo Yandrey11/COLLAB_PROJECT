@@ -300,7 +300,7 @@ JWT_SECRET=your_jwt_secret_key
 ```json
 {
   "id": "user_mongodb_id",
-  "role": "counselor|admin|user",
+  "role": "counselor|admin",
   "iat": 1234567890,
   "exp": 1234654290
 }
@@ -716,7 +716,6 @@ Clear reset code
 - [reCAPTCHA Documentation](https://developers.google.com/recaptcha)
 - [MongoDB Documentation](https://www.mongodb.com/docs/)
 - [PDFKit Documentation](https://pdfkit.org/)
-
 ---
 
 **Last Updated**: 2024
