@@ -2,6 +2,7 @@ import { useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import ReCAPTCHA from "react-google-recaptcha";
+import Swal from "sweetalert2";
 
 function Login() {
   const [email, setEmail] = useState("");
@@ -28,11 +29,21 @@ function Login() {
       localStorage.setItem("token", res.data.token); // Store as both for consistency
       localStorage.setItem("user", JSON.stringify(res.data.user || res.data.result));
 
-      alert("✅ Login successful!");
+      await Swal.fire({
+        icon: "success",
+        title: "Login Successful!",
+        text: "Welcome back!",
+        timer: 2000,
+        showConfirmButton: false,
+      });
       navigate("/dashboard", { replace: true });
     } catch (err) {
       console.error(err);
-      alert(err.response?.data?.message || "❌ Invalid email or password");
+      Swal.fire({
+        icon: "error",
+        title: "Login Failed",
+        text: err.response?.data?.message || "Invalid email or password",
+      });
     }
   };
   const handleFacebookLogin = () => {
@@ -42,194 +53,257 @@ function Login() {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css?family=Montserrat:400,800');
+        @import url('https://fonts.googleapis.com/css?family=Montserrat:400,600,700&display=swap');
         * { box-sizing: border-box; }
         html, body, #root { height: 100%; margin: 0; padding: 0; }
         .page {
-          width: 100vw;
+          width: 100%;
           min-height: 100vh;
           display: flex;
           align-items: center;
           justify-content: center;
-          background: #f6f5f7;
+          background: linear-gradient(135deg, #eef2ff, #c7d2fe);
           font-family: 'Montserrat', sans-serif;
-          padding: 24px;
-          margin: 0;
-          box-sizing: border-box;
+          padding: 32px 16px;
         }
-        .card {
-          width: 380px;
-          max-width: 100%;
+        .cardWrapper {
+          width: 100%;
+          max-width: 520px;
           background: #fff;
-          border-radius: 10px;
-          box-shadow: 0 10px 30px rgba(0,0,0,0.12);
-          padding: 32px;
-          text-align: center;
+          border-radius: 24px;
+          box-shadow: 0 25px 70px rgba(79, 70, 229, 0.15);
+          padding: 48px 40px;
         }
-        h1 { margin: 0 0 12px 0; font-size: 24px; color: #333; }
-        p { margin: 0 0 20px 0; color: #666; font-size: 14px; }
-        form { display: flex; flex-direction: column; gap: 10px; }
+        .formSection {
+          display: flex;
+          flex-direction: column;
+          gap: 18px;
+        }
+        .heading h1 {
+          margin: 0;
+          font-size: 28px;
+          color: #111827;
+        }
+        .heading p {
+          margin: 6px 0 0 0;
+          color: #6b7280;
+          font-size: 15px;
+        }
+        form {
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+        }
+        label {
+          font-size: 13px;
+          font-weight: 600;
+          color: #374151;
+        }
         input {
+          width: 100%;
           padding: 12px 14px;
-          border-radius: 6px;
-          border: 1px solid #e3e3e3;
-          background: #000000ff;
-          font-size: 14px;
+          border-radius: 10px;
+          border: 1px solid #e5e7eb;
+          font-size: 15px;
+          background: #f9fafb;
+          transition: border 0.2s ease;
+        }
+        input:focus {
+          outline: none;
+          border-color: #4f46e5;
+          background: #fff;
         }
         .actions {
           display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-top: 8px;
+          justify-content: flex-end;
+          font-size: 13px;
         }
         .link {
-          color: #666;
-          font-size: 13px;
+          color: #4f46e5;
           text-decoration: none;
+          font-weight: 600;
         }
-        button {
-          margin-top: 12px;
+        .primaryBtn {
           border: none;
-          background: linear-gradient(90deg,#FF4B2B,#FF416C);
+          background: linear-gradient(120deg,#4f46e5,#7c3aed);
           color: #fff;
-          padding: 12px;
-          border-radius: 8px;
+          padding: 14px;
+          border-radius: 12px;
           cursor: pointer;
           font-weight: 700;
-          transition: all 0.2s ease;
+          font-size: 15px;
+          transition: transform 0.15s ease, box-shadow 0.15s ease;
         }
-        button:hover {
-          transform: scale(1.03);
+        .primaryBtn:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 12px 25px rgba(79,70,229,0.25);
         }
-        /* Secondary signup button */
-        .signupBtn {
-          background: #fff;
-          color: #FF416C;
-          border: 2px solid #FF416C;
-          padding: 10px;
-          margin-top: 8px;
+        .divider {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          font-size: 12px;
+          text-transform: uppercase;
+          color: #9ca3af;
+          letter-spacing: 0.08em;
         }
-        .signupBtn:hover {
-          transform: scale(1.03);
-          background: rgba(255,65,108,0.04);
+        .divider::before,
+        .divider::after {
+          content: "";
+          flex: 1;
+          height: 1px;
+          background: #e5e7eb;
         }
-        /* Google login button */
+        .socialButtons {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+          gap: 10px;
+        }
+        .socialBtn,
         .googleBtn {
+          border: 1px solid #e5e7eb;
+          border-radius: 10px;
           background: #fff;
-          color: #444;
-          border: 1px solid #ddd;
-          padding: 10px;
-          margin-top: 8px;
+          padding: 10px 14px;
           display: flex;
           align-items: center;
           justify-content: center;
           gap: 8px;
-          border-radius: 8px;
-          cursor: pointer;
           font-weight: 600;
+          cursor: pointer;
+          color: #374151;
+          text-decoration: none;
+          transition: border 0.2s ease, transform 0.15s ease;
         }
+        .socialBtn:hover,
         .googleBtn:hover {
-          transform: scale(1.02);
-          box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+          transform: translateY(-1px);
+          border-color: #c7d2fe;
         }
         .backBtn {
+          align-self: flex-start;
           background: transparent;
-          color: #666;
-          border: 1px solid #ddd;
+          color: #6b7280;
+          border: 1px solid #e5e7eb;
           padding: 8px 16px;
-          margin-bottom: 16px;
+          border-radius: 999px;
           display: flex;
           align-items: center;
-          justify-content: center;
           gap: 6px;
           font-size: 13px;
-          font-weight: 500;
+          font-weight: 600;
+          cursor: pointer;
         }
-        .backBtn:hover {
-          transform: scale(1.02);
-          background: rgba(0,0,0,0.02);
-          border-color: #999;
+        .signupBtn {
+          background: #fff;
+          color: #4f46e5;
+          border: 1px solid #dbeafe;
+          padding: 12px;
+          border-radius: 12px;
+          font-weight: 600;
+          cursor: pointer;
         }
-        @media (max-width: 420px) {
-          .card { padding: 20px; width: 100%; }
+        .metaInfo {
+          font-size: 13px;
+          color: #9ca3af;
+          text-align: center;
+        }
+        @media (max-width: 520px) {
+          .cardWrapper {
+            padding: 32px 24px;
+          }
         }
       `}</style>
 
       <div className="page">
-        <div className="card" role="main">
-          <button
-            type="button"
-            className="backBtn"
-            onClick={() => navigate("/")}
-            aria-label="Go back to landing page"
-          >
-            ← Go Back
-          </button>
-          <h1>Log In</h1>
-          <p>Use your account to access the dashboard</p>
-          <form onSubmit={handleSubmit}>
-            <input
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoComplete="email"
-            />
-            <input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              autoComplete="current-password"
-            />
-
-            {/* ✅ reCAPTCHA component */}
-            <ReCAPTCHA
-              sitekey={SITE_KEY}
-              onChange={(token) => setRecaptchaToken(token)}
-              style={{ marginTop: "10px", alignSelf: "center" }}
-            />
-
-            <div className="actions">
-              <a className="link" href="./forgot-password">Forgot password?</a>
-            </div>
-            <button type="submit">LOGIN</button>
-
-            {/* Google login button */}
+        <div className="cardWrapper" role="main">
+          <section className="formSection" aria-label="Login form">
             <button
               type="button"
-              className="googleBtn"
-              onClick={() => {
-                // Redirect to backend OAuth endpoint to start Google sign-in flow
-                window.location.href = "http://localhost:5000/auth/google";
-                }}
-                aria-label="Sign in with Google"
-              >
-                Login in with Google
+              className="backBtn"
+              onClick={() => navigate("/")}
+              aria-label="Go back to landing page"
+            >
+              ← Go Back
+            </button>
+
+            <div className="heading">
+              <h1>Welcome back</h1>
+              <p>Sign in to access records, reports, notifications, and more.</p>
+            </div>
+
+            <form onSubmit={handleSubmit}>
+              <div>
+                <label htmlFor="email">Email address</label>
+                <input
+                  id="email"
+                  type="email"
+                  placeholder="Email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoComplete="email"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="password">Password</label>
+                <input
+                  id="password"
+                  type="password"
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  autoComplete="current-password"
+                />
+              </div>
+
+              <ReCAPTCHA
+                sitekey={SITE_KEY}
+                onChange={(token) => setRecaptchaToken(token)}
+                style={{ alignSelf: "center" }}
+              />
+
+              <div className="actions">
+                <a className="link" href="./forgot-password">
+                  Forgot password?
+                </a>
+              </div>
+
+              <button type="submit" className="primaryBtn">
+                Log in to Dashboard
               </button>
 
-              <a
-                href="http://localhost:5000/auth/github"
-                className="googleBtn"
-                aria-label="Login with GitHub"
-                style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, textDecoration: "none" }}
-              >
-                <img src="https://www.svgrepo.com/show/512317/github-142.svg" alt="github" width="20" />
-                Login with GitHub
-              </a>
+              <div className="divider">
+                <span>or continue with</span>
+              </div>
 
-              {/* New signup button below the Sign In button */}
-            <button
-              type="button"
-              className="signupBtn"
-              onClick={() => navigate("/signup")}
-            >
-              Sign Up
-            </button>
+              <div className="socialButtons">
+                <button
+                  type="button"
+                  className="googleBtn"
+                  onClick={() => {
+                    window.location.href = "http://localhost:5000/auth/google";
+                  }}
+                  aria-label="Sign in with Google"
+                >
+                  <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="google" width="18" />
+                  Google
+                </button>
+              </div>
+
+              <button
+                type="button"
+                className="signupBtn"
+                onClick={() => navigate("/signup")}
+              >
+                Create a counselor account
+              </button>
+
             
-          </form>
+            </form>
+          </section>
         </div>
       </div>
     </>

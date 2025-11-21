@@ -1,6 +1,9 @@
 import React, { useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import Swal from "sweetalert2";
+import { validatePassword } from "../utils/passwordValidation.js";
+import PasswordStrengthMeter from "../components/PasswordStrengthMeter.jsx";
 
 function Signup() {
   const [signupData, setSignupData] = useState({
@@ -9,14 +12,36 @@ function Signup() {
     password: "",
   });
 
+  const [passwordErrors, setPasswordErrors] = useState([]);
+
   const navigate = useNavigate();
 
   const handleSignupChange = (e) => {
-    setSignupData({ ...signupData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setSignupData({ ...signupData, [name]: value });
+
+    if (name === "password") {
+      const result = validatePassword(value);
+      setPasswordErrors(result.errors);
+    }
   };
 
   const handleSignupSubmit = async (e) => {
     e.preventDefault();
+    setPasswordErrors([]);
+
+    const validation = validatePassword(signupData.password);
+    if (!validation.isValid) {
+      setPasswordErrors(validation.errors);
+      Swal.fire({
+        icon: "error",
+        title: "Password requirements not met",
+        html: `<ul style="text-align:left;margin:0;padding-left:1.2rem;">${validation.errors
+          .map((err) => `<li>${err}</li>`)
+          .join("")}</ul>`,
+      });
+      return;
+    }
     try {
       const res = await axios.post(
         "http://localhost:5000/api/auth/signup", // ✅ fixed URL
@@ -24,7 +49,13 @@ function Signup() {
         { headers: { "Content-Type": "application/json" } }
       );
 
-      alert("✅ Signup successful!");
+      Swal.fire({
+        icon: "success",
+        title: "Signup Successful!",
+        text: "Your account has been created successfully!",
+        timer: 2000,
+        showConfirmButton: false,
+      });
       console.log(res.data);
 
       if (res.data?.token) {
@@ -35,7 +66,11 @@ function Signup() {
       navigate("/login");
     } catch (error) {
       console.error("Signup failed:", error.response?.data || error.message);
-      alert("Signup failed: " + (error.response?.data?.message || error.message));
+      Swal.fire({
+        icon: "error",
+        title: "Signup Failed",
+        text: error.response?.data?.message || error.message,
+      });
     }
   };
 
@@ -104,8 +139,17 @@ function Signup() {
                 value={signupData.password}
                 onChange={handleSignupChange}
                 required
-                minLength={6}
               />
+              <div className="mt-1">
+                <PasswordStrengthMeter password={signupData.password} />
+              </div>
+              {passwordErrors.length > 0 && (
+                <ul className="mt-2 text-xs text-red-600 list-disc list-inside">
+                  {passwordErrors.map((err) => (
+                    <li key={err}>{err}</li>
+                  ))}
+                </ul>
+              )}
             </div>
 
             <button type="submit" className="btn">Create Account</button>

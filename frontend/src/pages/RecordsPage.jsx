@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
+import Swal from "sweetalert2";
 
 const API_URL = "http://localhost:5000/api/records";
 
@@ -176,14 +177,22 @@ const RecordsPage = () => {
 
   const handleCreateRecord = async () => {
     if (!newRecord.clientName || !newRecord.sessionType) {
-      alert("⚠️ Please fill out client name and session type.");
+      Swal.fire({
+        icon: "warning",
+        title: "Missing Information",
+        text: "Please fill out client name and session type.",
+      });
       return;
     }
 
     // Check if user is logged in
     const token = localStorage.getItem("token") || localStorage.getItem("authToken");
     if (!token) {
-      alert("⚠️ Please log in to create records");
+      Swal.fire({
+        icon: "warning",
+        title: "Login Required",
+        text: "Please log in to create records",
+      });
       navigate("/login");
       return;
     }
@@ -210,7 +219,11 @@ const RecordsPage = () => {
       const counselorName = currentUser?.name || currentUser?.email;
       
       if (!counselorName) {
-        alert("⚠️ Unable to determine counselor name. Please log in again.");
+        Swal.fire({
+          icon: "warning",
+          title: "Authentication Error",
+          text: "Unable to determine counselor name. Please log in again.",
+        });
         navigate("/login");
         return;
       }
@@ -227,7 +240,13 @@ const RecordsPage = () => {
       // Refresh records to get the updated record with driveLink
       await fetchRecords();
       
-      alert("✅ New record created and uploaded to Google Drive successfully!");
+      Swal.fire({
+        icon: "success",
+        title: "Success!",
+        text: "New record created and uploaded to Google Drive successfully!",
+        timer: 3000,
+        showConfirmButton: false,
+      });
       setNewRecord({
         clientName: "",
         date: "",
@@ -240,7 +259,11 @@ const RecordsPage = () => {
       setShowForm(false);
     } catch (err) {
       console.error("Error creating record:", err);
-      alert("❌ Failed to create record");
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "Failed to create record",
+      });
     } finally {
       setLoading(false);
     }
@@ -252,12 +275,22 @@ const RecordsPage = () => {
       await axios.put(`${API_URL}/${selectedRecord._id}`, selectedRecord, {
         headers: token ? { Authorization: `Bearer ${token}` } : {}
       });
-      alert("✅ Record updated successfully!");
+      Swal.fire({
+        icon: "success",
+        title: "Success",
+        text: "Record updated successfully!",
+        timer: 2000,
+        showConfirmButton: false,
+      });
       setSelectedRecord(null);
       fetchRecords();
     } catch (err) {
       console.error("Error updating record:", err);
-      alert("❌ Failed to update record");
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "Failed to update record",
+      });
     }
   };
 
