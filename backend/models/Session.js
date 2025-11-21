@@ -22,7 +22,7 @@ const sessionSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ["user", "counselor", "admin"],
+      enum: ["counselor", "admin"],
       required: true,
     },
     loginTime: {
