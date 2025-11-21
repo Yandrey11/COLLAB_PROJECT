@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
+import Swal from "sweetalert2";
+import AdminSidebar from "../../components/AdminSidebar";
 
 const API_URL = "http://localhost:5000/api/admin/records";
 
@@ -49,8 +51,6 @@ export default function AdminRecordManagement() {
   });
 
   // Loading states
-  const [uploadingToDrive, setUploadingToDrive] = useState(false);
-  const [generatingPDF, setGeneratingPDF] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -108,7 +108,11 @@ export default function AdminRecordManagement() {
       setCounselors(res.data.filters?.counselors || []);
     } catch (error) {
       console.error("Error fetching records:", error);
-      alert("Failed to fetch records");
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "Failed to fetch records",
+      });
     } finally {
       setLoading(false);
     }
@@ -161,12 +165,22 @@ export default function AdminRecordManagement() {
       await axios.put(`${API_URL}/${selectedRecord._id}`, editForm, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      alert("Record updated successfully!");
+      Swal.fire({
+        icon: "success",
+        title: "Success",
+        text: "Record updated successfully!",
+        timer: 2000,
+        showConfirmButton: false,
+      });
       setShowEditModal(false);
       fetchRecords();
     } catch (error) {
       console.error("Error updating record:", error);
-      alert("Failed to update record");
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "Failed to update record",
+      });
     } finally {
       setSaving(false);
     }
@@ -185,61 +199,29 @@ export default function AdminRecordManagement() {
       await axios.delete(`${API_URL}/${recordToDelete._id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      alert("Record deleted successfully!");
+      Swal.fire({
+        icon: "success",
+        title: "Success",
+        text: "Record deleted successfully!",
+        timer: 2000,
+        showConfirmButton: false,
+      });
       setShowDeleteConfirm(false);
       setRecordToDelete(null);
       fetchRecords();
     } catch (error) {
       console.error("Error deleting record:", error);
-      alert("Failed to delete record");
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "Failed to delete record",
+      });
     } finally {
       setDeleting(false);
     }
   };
 
-  // Generate PDF
-  const handleGeneratePDF = async (record) => {
-    try {
-      setGeneratingPDF(true);
-      const token = localStorage.getItem("adminToken");
-      const res = await axios.get(`${API_URL}/${record._id}/pdf`, {
-        headers: { Authorization: `Bearer ${token}` },
-        responseType: "blob",
-      });
-
-      const url = window.URL.createObjectURL(new Blob([res.data]));
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute("download", `${record.clientName}_record_${record._id}.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      alert("PDF generated successfully!");
-    } catch (error) {
-      console.error("Error generating PDF:", error);
-      alert("Failed to generate PDF");
-    } finally {
-      setGeneratingPDF(false);
-    }
-  };
-
-  // Upload to Google Drive
-  const handleUploadToDrive = async (record) => {
-    try {
-      setUploadingToDrive(true);
-      const token = localStorage.getItem("adminToken");
-      const res = await axios.post(`${API_URL}/${record._id}/upload-drive`, {}, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      alert(`PDF uploaded to Google Drive successfully! Link: ${res.data.driveLink}`);
-      fetchRecords();
-    } catch (error) {
-      console.error("Error uploading to Drive:", error);
-      alert(error.response?.data?.message || "Failed to upload to Google Drive");
-    } finally {
-      setUploadingToDrive(false);
-    }
-  };
+  // Upload/Download of PDFs for admin have been removed
 
   // Clear all filters
   const handleClearFilters = () => {
@@ -272,67 +254,74 @@ export default function AdminRecordManagement() {
     }
   };
 
-  if (loading && records.length === 0) {
-    return (
-      <div style={{ 
-        minHeight: "100vh", 
-        display: "flex", 
-        alignItems: "center", 
-        justifyContent: "center",
-        background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-      }}>
-        <div style={{ color: "white", fontSize: "20px" }}>Loading records...</div>
-      </div>
-    );
-  }
-
   return (
     <div
       style={{
+        width: "100vw",
         minHeight: "100vh",
-        background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-        fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-        padding: "20px",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        background: "linear-gradient(135deg, #eef2ff, #c7d2fe)",
+        fontFamily: "'Montserrat', sans-serif",
+        padding: "40px 16px",
+        gap: 20,
       }}
     >
-      <div style={{ maxWidth: "1400px", margin: "0 auto" }}>
-        {/* Header */}
-        <motion.div
+      <div
+        style={{
+          maxWidth: 1400,
+          width: "100%",
+          display: "grid",
+          gridTemplateColumns: "360px 1fr",
+          gap: 24,
+        }}
+      >
+        <AdminSidebar />
+
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 20,
+          }}
+        >
+          {/* Header */}
+          <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: "30px",
-            background: "white",
-            padding: "20px 30px",
-            borderRadius: "12px",
-            boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
+            background: "#fff",
+            borderRadius: 16,
+            padding: 24,
+            boxShadow: "0 10px 25px rgba(0,0,0,0.06)",
           }}
         >
-          <div>
-            <h1 style={{ fontSize: "28px", fontWeight: "700", margin: 0, color: "#1a202c" }}>
-              Record Management
-            </h1>
-            <p style={{ margin: "5px 0 0 0", color: "#718096" }}>
-              Manage all counseling records
-            </p>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+              <button
+                onClick={() => navigate("/AdminDashboard")}
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: 10,
+                  border: "1px solid #e6e9ef",
+                  background: "#fff",
+                  color: "#6b7280",
+                  cursor: "pointer",
+                  fontWeight: 600,
+                  fontSize: 14,
+                }}
+              >
+                ← Back
+              </button>
+              <div>
+                <h1 style={{ color: "#111827", margin: 0 }}>Record Management</h1>
+                <p style={{ color: "#6b7280", marginTop: 6 }}>
+                  Manage all counseling records.
+                </p>
+              </div>
+            </div>
           </div>
-          <button
-            onClick={() => navigate("/admindashboard")}
-            style={{
-              padding: "10px 20px",
-              background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-              color: "white",
-              border: "none",
-              borderRadius: "8px",
-              cursor: "pointer",
-              fontWeight: "600",
-            }}
-          >
-            Back to Dashboard
-          </button>
         </motion.div>
 
         {/* Search and Filters */}
@@ -340,11 +329,10 @@ export default function AdminRecordManagement() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           style={{
-            background: "white",
-            padding: "25px",
-            borderRadius: "12px",
-            boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
-            marginBottom: "20px",
+            background: "#fff",
+            padding: 25,
+            borderRadius: 16,
+            boxShadow: "0 10px 25px rgba(0,0,0,0.06)",
           }}
         >
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "15px", marginBottom: "15px" }}>
@@ -542,11 +530,10 @@ export default function AdminRecordManagement() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           style={{
-            background: "white",
-            padding: "25px",
-            borderRadius: "12px",
-            boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
-            marginBottom: "20px",
+            background: "#fff",
+            padding: 25,
+            borderRadius: 16,
+            boxShadow: "0 10px 25px rgba(0,0,0,0.06)",
           }}
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
@@ -655,53 +642,6 @@ export default function AdminRecordManagement() {
                           >
                             Edit
                           </button>
-                          <button
-                            onClick={() => handleDeleteClick(record)}
-                            style={{
-                              padding: "6px 12px",
-                              background: "#f56565",
-                              color: "white",
-                              border: "none",
-                              borderRadius: "6px",
-                              cursor: "pointer",
-                              fontSize: "12px",
-                              fontWeight: "600",
-                            }}
-                          >
-                            Delete
-                          </button>
-                          <button
-                            onClick={() => handleGeneratePDF(record)}
-                            disabled={generatingPDF}
-                            style={{
-                              padding: "6px 12px",
-                              background: generatingPDF ? "#cbd5e0" : "#9f7aea",
-                              color: "white",
-                              border: "none",
-                              borderRadius: "6px",
-                              cursor: generatingPDF ? "not-allowed" : "pointer",
-                              fontSize: "12px",
-                              fontWeight: "600",
-                            }}
-                          >
-                            PDF
-                          </button>
-                          <button
-                            onClick={() => handleUploadToDrive(record)}
-                            disabled={uploadingToDrive}
-                            style={{
-                              padding: "6px 12px",
-                              background: uploadingToDrive ? "#cbd5e0" : "#ed8936",
-                              color: "white",
-                              border: "none",
-                              borderRadius: "6px",
-                              cursor: uploadingToDrive ? "not-allowed" : "pointer",
-                              fontSize: "12px",
-                              fontWeight: "600",
-                            }}
-                          >
-                            Drive
-                          </button>
                         </div>
                       </td>
                     </tr>
@@ -750,6 +690,9 @@ export default function AdminRecordManagement() {
             </div>
           )}
         </motion.div>
+      </div>
+
+      {/* Close grid container */}
       </div>
 
       {/* Detail Modal */}
@@ -857,21 +800,6 @@ export default function AdminRecordManagement() {
                     {selectedRecord.outcomes || "No outcomes"}
                   </div>
                 </div>
-                {selectedRecord.driveLink && (
-                  <div>
-                    <strong style={{ color: "#4a5568" }}>Google Drive Link:</strong>
-                    <div style={{ marginTop: "5px" }}>
-                      <a
-                        href={selectedRecord.driveLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ color: "#4299e1", textDecoration: "underline" }}
-                      >
-                        View in Google Drive
-                      </a>
-                    </div>
-                  </div>
-                )}
                 {selectedRecord.attachments && selectedRecord.attachments.length > 0 && (
                   <div>
                     <strong style={{ color: "#4a5568" }}>Attachments:</strong>
@@ -1004,14 +932,17 @@ export default function AdminRecordManagement() {
                   <input
                     type="text"
                     value={editForm.clientName}
-                    onChange={(e) => setEditForm({ ...editForm, clientName: e.target.value })}
-                    required
+                    disabled
+                    readOnly
                     style={{
                       width: "100%",
                       padding: "10px",
                       border: "1px solid #e2e8f0",
                       borderRadius: "8px",
                       fontSize: "14px",
+                      backgroundColor: "#f7fafc",
+                      color: "#718096",
+                      cursor: "not-allowed",
                     }}
                   />
                 </div>
@@ -1023,14 +954,17 @@ export default function AdminRecordManagement() {
                   <input
                     type="date"
                     value={editForm.date}
-                    onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
-                    required
+                    disabled
+                    readOnly
                     style={{
                       width: "100%",
                       padding: "10px",
                       border: "1px solid #e2e8f0",
                       borderRadius: "8px",
                       fontSize: "14px",
+                      backgroundColor: "#f7fafc",
+                      color: "#718096",
+                      cursor: "not-allowed",
                     }}
                   />
                 </div>
@@ -1042,14 +976,17 @@ export default function AdminRecordManagement() {
                   <input
                     type="text"
                     value={editForm.sessionType}
-                    onChange={(e) => setEditForm({ ...editForm, sessionType: e.target.value })}
-                    required
+                    disabled
+                    readOnly
                     style={{
                       width: "100%",
                       padding: "10px",
                       border: "1px solid #e2e8f0",
                       borderRadius: "8px",
                       fontSize: "14px",
+                      backgroundColor: "#f7fafc",
+                      color: "#718096",
+                      cursor: "not-allowed",
                     }}
                   />
                 </div>
@@ -1061,13 +998,17 @@ export default function AdminRecordManagement() {
                   <input
                     type="number"
                     value={editForm.sessionNumber}
-                    onChange={(e) => setEditForm({ ...editForm, sessionNumber: e.target.value })}
+                    disabled
+                    readOnly
                     style={{
                       width: "100%",
                       padding: "10px",
                       border: "1px solid #e2e8f0",
                       borderRadius: "8px",
                       fontSize: "14px",
+                      backgroundColor: "#f7fafc",
+                      color: "#718096",
+                      cursor: "not-allowed",
                     }}
                   />
                 </div>
@@ -1078,13 +1019,16 @@ export default function AdminRecordManagement() {
                   </label>
                   <select
                     value={editForm.status}
-                    onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
+                    disabled
                     style={{
                       width: "100%",
                       padding: "10px",
                       border: "1px solid #e2e8f0",
                       borderRadius: "8px",
                       fontSize: "14px",
+                      backgroundColor: "#f7fafc",
+                      color: "#718096",
+                      cursor: "not-allowed",
                     }}
                   >
                     <option value="Ongoing">Ongoing</option>

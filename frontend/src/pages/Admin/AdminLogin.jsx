@@ -2,6 +2,7 @@ import { useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import ReCAPTCHA from "react-google-recaptcha";
+import Swal from "sweetalert2";
 
 export default function AdminLogin() {
   const [email, setEmail] = useState("");
@@ -54,7 +55,13 @@ export default function AdminLogin() {
       }
 
       console.log("✅ Token stored successfully, redirecting to dashboard");
-      alert("✅ Admin login successful!");
+      await Swal.fire({
+        icon: "success",
+        title: "Login Successful!",
+        text: "Admin login successful!",
+        timer: 2000,
+        showConfirmButton: false,
+      });
       navigate("/admindashboard", { replace: true });
     } catch (err) {
       console.error("❌ Login error:", err);
@@ -70,14 +77,10 @@ export default function AdminLogin() {
     window.location.href = "http://localhost:5000/auth/admin/google";
   };
 
-  const handleGitHubLogin = () => {
-    window.location.href = "http://localhost:5000/auth/admin/github";
-  };
-
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap');
         * { box-sizing: border-box; }
         html, body, #root {
           height: 100%;
@@ -86,7 +89,7 @@ export default function AdminLogin() {
           font-family: 'Montserrat', sans-serif;
           -webkit-font-smoothing: antialiased;
           -moz-osx-font-smoothing: grayscale;
-          background: #111827;
+          background: linear-gradient(135deg, #eef2ff, #c7d2fe);
           overflow-x: hidden;
         }
         .page {
@@ -94,155 +97,245 @@ export default function AdminLogin() {
           align-items: center;
           justify-content: center;
           min-height: 100vh;
-          padding: 24px;
+          padding: 32px 16px;
         }
         .card {
-          background: #fff;
-          border-radius: 12px;
-          padding: 36px 28px;
           width: 100%;
-          max-width: 420px;
-          box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-          text-align: center;
+          max-width: 520px;
+          background: #fff;
+          border-radius: 24px;
+          padding: 48px 40px;
+          box-shadow: 0 25px 70px rgba(79, 70, 229, 0.15);
+          border: 1px solid rgba(226,232,240,0.8);
+          color: #111827;
         }
-        h1 { color: #111827; margin-bottom: 10px; }
-        p { color: #6b7280; font-size: 14px; margin-bottom: 18px; }
+        .formSection {
+          display: flex;
+          flex-direction: column;
+          gap: 18px;
+        }
+        .heading h1 {
+          margin: 0;
+          font-size: 30px;
+          color: #111827;
+        }
+        .heading p {
+          color: #6b7280;
+          margin: 6px 0 0 0;
+          font-size: 15px;
+        }
+        form {
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+        }
+        label {
+          font-size: 13px;
+          font-weight: 600;
+          color: #374151;
+          margin-bottom: 6px;
+          display: inline-block;
+        }
         input {
           width: 100%;
-          padding: 12px;
-          margin-bottom: 12px;
-          border-radius: 8px;
-          border: 1px solid #d1d5db;
-          font-size: 14px;
+          padding: 12px 14px;
+          border-radius: 12px;
+          border: 1px solid #e5e7eb;
+          background: #f9fafb;
+          color: #111827;
+          font-size: 15px;
+          transition: border 0.2s ease, background 0.2s ease;
         }
-        button {
-          width: 100%;
-          padding: 12px;
-          border: none;
-          border-radius: 8px;
-          font-weight: 600;
-          cursor: pointer;
-          margin-top: 8px;
+        input:focus {
+          outline: none;
+          border-color: #4f46e5;
+          background: #fff;
         }
         .primary {
-          background: linear-gradient(90deg, #2563eb, #1d4ed8);
+          width: 100%;
+          padding: 14px;
+          border: none;
+          border-radius: 12px;
+          font-weight: 700;
+          cursor: pointer;
+          background: linear-gradient(120deg,#4f46e5,#7c3aed);
           color: #fff;
+          margin-top: 4px;
+          transition: transform 0.15s ease, box-shadow 0.15s ease;
         }
-        .primary:hover {
-          background: linear-gradient(90deg, #1e40af, #1d4ed8);
+        .primary:disabled {
+          opacity: 0.65;
+          cursor: not-allowed;
         }
-        .google, .github {
+        .primary:hover:not(:disabled) {
+          transform: translateY(-1px);
+          box-shadow: 0 15px 30px rgba(99,102,241,0.35);
+        }
+        .divider {
           display: flex;
-          justify-content: center;
           align-items: center;
-          gap: 8px;
-          transition: 0.15s ease;
-          padding: 10px;
-        }
-        .google {
-          background: #fff;
-          border: 1px solid #ddd;
-          color: #444;
-        }
-        .google:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 6px 18px rgba(0,0,0,0.08);
-        }
-        .github {
-          background: #24292e;
-          color: #fff;
-        }
-        .github:hover {
-          background: #1a1e22;
-          transform: translateY(-2px);
-        }
-        .signup-btn {
-          background: transparent;
-          color: #2563eb;
+          gap: 10px;
           font-size: 12px;
-          padding: 8px;
-          text-decoration: underline;
-          margin-top: 10px;
+          text-transform: uppercase;
+          color: #9ca3af;
+          letter-spacing: 0.08em;
+          margin-top: 14px;
         }
-        .signup-btn:hover {
-          color: #1d4ed8;
+        .divider::before,
+        .divider::after {
+          content: "";
+          flex: 1;
+          height: 1px;
+          background: #e5e7eb;
         }
-        .back-btn {
+        .socialButtons {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+          gap: 10px;
+          margin-top: 16px;
+        }
+        .socialBtn,
+        .googleBtn {
+          flex: 1;
+          border: 1px solid #e5e7eb;
+          border-radius: 12px;
+          padding: 10px 14px;
+          background: #fff;
+          color: #374151;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          cursor: pointer;
+          font-weight: 600;
+          transition: transform 0.15s ease, border 0.15s ease;
+          text-decoration: none;
+        }
+        .socialBtn:hover,
+        .googleBtn:hover {
+          transform: translateY(-1px);
+          border-color: #c7d2fe;
+        }
+        .backBtn {
+          align-self: flex-start;
           background: transparent;
           color: #6b7280;
-          font-size: 12px;
-          padding: 8px;
-          text-decoration: none;
-          margin-top: 8px;
+          border: 1px solid #e5e7eb;
+          padding: 8px 16px;
+          border-radius: 999px;
+          font-weight: 600;
+          cursor: pointer;
         }
-        .back-btn:hover {
-          color: #374151;
+        .backBtn:hover {
+          color: #111827;
+          border-color: #c7d2fe;
         }
         .error {
-          color: red;
-          margin-top: 12px;
+          margin-top: 14px;
+          padding: 10px 12px;
+          border-radius: 10px;
+          background: rgba(239,68,68,0.1);
+          text-align: left;
+          font-size: 13px;
         }
-
-        /* ensure icons/images inside buttons are aligned and responsive */
-        .google img, .github img {
-          width: 20px;
-          height: 20px;
-          display: inline-block;
+        .actions {
+          display: flex;
+          justify-content: flex-end;
+          font-size: 13px;
+        }
+        .link {
+          color: #4f46e5;
+          text-decoration: none;
+          font-weight: 600;
+        }
+        .status {
+          font-size: 13px;
+          color: #4f46e5;
+          margin-top: 10px;
+        }
+        @media (max-width: 520px) {
+          .card {
+            padding: 32px 24px;
+          }
+          .socialButtons {
+            grid-template-columns: 1fr;
+          }
         }
       `}</style>
 
       <div className="page">
-        <div className="card">
-          <h1>Admin Login</h1>
-          <p>Sign in with your admin credentials</p>
-
-          <form onSubmit={handleSubmit}>
-            <input
-              type="email"
-              placeholder="Admin Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-            <input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-
-            {/* ✅ Google reCAPTCHA */}
-            <div style={{ display: "flex", justifyContent: "center", marginBottom: "12px" }}>
-              <ReCAPTCHA
-                sitekey="6Lf98vErAAAAAFBhvxrQnb4NCHHLXwYb-QOlKSQ3"
-                onChange={(token) => setCaptchaToken(token)}
-              />
+        <div className="card" role="main">
+          <section className="formSection" aria-label="Admin login form">
+            <button className="backBtn" onClick={() => navigate("/")}>
+              ← Go Back 
+            </button>
+            <div className="heading">
+              <h1>Welcome back</h1>
+              <p>Sign in to access records, reports, notifications, and more.</p>
             </div>
 
-            <button type="submit" className="primary" disabled={loading}>
-              {loading ? "Logging in..." : "Login"}
-            </button>
-          </form>
+            <form onSubmit={handleSubmit}>
+              <div>
+                <label htmlFor="admin-email">Admin email</label>
+                <input
+                  id="admin-email"
+                  type="email"
+                  placeholder="Email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoComplete="email"
+                />
+              </div>
+              <div>
+                <label htmlFor="admin-password">Password</label>
+                <input
+                  id="admin-password"
+                  type="password"
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  autoComplete="current-password"
+                />
+              </div>
 
-          <button className="google" onClick={handleGoogleLogin}>
-            <img
-              src="https://developers.google.com/identity/images/g-logo.png"
-              alt="Google"
-              style={{ width: "20px", height: "20px" }}
-            />
-            Sign in with Google
-          </button>
+              <div style={{ display: "flex", justifyContent: "center", margin: "6px 0 4px 0" }}>
+                <ReCAPTCHA
+                  sitekey="6Lf98vErAAAAAFBhvxrQnb4NCHHLXwYb-QOlKSQ3"
+                  onChange={(token) => setCaptchaToken(token)}
+                />
+              </div>
 
-          
+              <div className="actions">
+                <a className="link" href="/forgot-password">
+                  Forgot password?
+                </a>
+              </div>
 
-         
+              <button type="submit" className="primary" disabled={loading}>
+                {loading ? "Authenticating..." : "Log in to Dashboard"}
+              </button>
 
-          <button className="back-btn" onClick={() => navigate("/")}>
-            ← Back to Landing Page
-          </button>
+              <div className="divider">
+                <span>or continue with</span>
+              </div>
+
+              <div className="socialButtons">
+                <button className="googleBtn" onClick={handleGoogleLogin} aria-label="Sign in with Google">
+                  <img
+                    src="https://developers.google.com/identity/images/g-logo.png"
+                    alt="Google"
+                    style={{ width: "18px", height: "18px" }}
+                  />
+                  Google
+                </button>
+              </div>
+            </form>
+          </section>
 
           {message && <p className="error">{message}</p>}
+          {!message && loading && <p className="status">Verifying credentials...</p>}
         </div>
       </div>
     </>

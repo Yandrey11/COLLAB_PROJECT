@@ -1,6 +1,8 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import Swal from "sweetalert2";
+import AdminSidebar from "../../components/AdminSidebar";
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -83,7 +85,11 @@ export default function AdminDashboard() {
         console.error("❌ Error status:", err.response?.status);
         console.error("❌ Error headers:", err.response?.headers);
         if (err.response?.data?.message) {
-          alert(`❌ ${err.response.data.message}`);
+          Swal.fire({
+            icon: "error",
+            title: "Error",
+            text: err.response.data.message,
+          });
         }
         localStorage.removeItem("adminToken");
         navigate("/adminlogin", { replace: true });
@@ -178,8 +184,19 @@ export default function AdminDashboard() {
     summaryIntervalRef.current = setInterval(poll, 15000);
   };
 
-  const handleLogout = () => {
-    if (confirm("Are you sure you want to log out?")) {
+  const handleLogout = async () => {
+    const result = await Swal.fire({
+      title: "Logout?",
+      text: "Are you sure you want to log out?",
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonColor: "#4f46e5",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "Yes, log out",
+      cancelButtonText: "Cancel",
+    });
+
+    if (result.isConfirmed) {
       localStorage.removeItem("adminToken");
       navigate("/", { replace: true });
     }
@@ -197,23 +214,6 @@ export default function AdminDashboard() {
     if (newPage < 1 || newPage > usersTotalPages) return;
     await fetchUsers(token, newPage, usersQuery, usersStatusFilter);
   };
-
-  if (loading) {
-    return (
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          height: "100vh",
-          fontFamily: "'Montserrat', sans-serif",
-          background: "linear-gradient(135deg, #eef2ff, #c7d2fe)",
-        }}
-      >
-        <h2 style={{ color: "#111827" }}>Loading Admin Dashboard...</h2>
-      </div>
-    );
-  }
 
   if (accessDenied) {
     return (
@@ -259,67 +259,7 @@ export default function AdminDashboard() {
         }}
       >
         {/* Left: Overview / Navigation */}
-        <aside
-          style={{
-            background: "#fff",
-            borderRadius: 16,
-            padding: 20,
-            boxShadow: "0 10px 25px rgba(0,0,0,0.06)",
-            height: "fit-content",
-          }}
-        >
-          <h2 style={{ margin: 0, color: "#4f46e5" }}>Admin Panel</h2>
-          <p style={{ color: "#6b7280", fontSize: 13, marginTop: 8 }}>
-            Manage users, view analytics, monitor system activity, and configure settings.
-          </p>
-
-          <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 10 }}>
-            {[
-              { label: "Dashboard", action: () => window.scrollTo({ top: 0, behavior: "smooth" }) },
-              { label: "User Management", action: () => navigate("/admin/users") },
-              { label: "Notification Center", action: () => navigate("/admin/notifications") },
-              { label: "Record Management", action: () => navigate("/admin/records") },
-              { label: "Reports", action: () => document.getElementById("reports-section")?.scrollIntoView({ behavior: "smooth" }) },
-            
-              
-            ].map((item) => (
-              <button
-                key={item.label}
-                onClick={item.action}
-                style={{
-                  padding: "10px 12px",
-                  borderRadius: 10,
-                  border: "1px solid #eef2ff",
-                  background: "linear-gradient(90deg,#eef2ff,#fff)",
-                  cursor: "pointer",
-                  textAlign: "left",
-                  fontWeight: 600,
-                  color: "#111827",
-                }}
-              >
-                {item.label}
-              </button>
-            ))}
-
-            <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-              <button
-                onClick={handleLogout}
-                style={{
-                  flex: 1,
-                  padding: "10px 12px",
-                  borderRadius: 10,
-                  background: "#ef4444",
-                  color: "#fff",
-                  border: "none",
-                  cursor: "pointer",
-                  fontWeight: 600,
-                }}
-              >
-                Logout
-              </button>
-            </div>
-          </div>
-        </aside>
+        <AdminSidebar />
 
         {/* Right: Main content */}
         <main>

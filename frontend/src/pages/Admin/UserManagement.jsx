@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import Swal from "sweetalert2";
+import AdminSidebar from "../../components/AdminSidebar";
 
 export default function UserManagement() {
   const navigate = useNavigate();
@@ -9,31 +11,25 @@ export default function UserManagement() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
-  const [roleFilter, setRoleFilter] = useState("user"); // Default to "user" role
+  const [roleFilter, setRoleFilter] = useState("counselor"); // Default to counselor role
   const [statusFilter, setStatusFilter] = useState("all");
   const [message, setMessage] = useState({ type: "", text: "" });
   
   // Modal states
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   
   // Form states
   const [addForm, setAddForm] = useState({
     name: "",
     email: "",
-    password: "",
-    role: "user",
+    role: "counselor",
   });
   const [editForm, setEditForm] = useState({
     name: "",
     email: "",
-    role: "user",
-  });
-  const [passwordForm, setPasswordForm] = useState({
-    newPassword: "",
-    confirmPassword: "",
+    role: "counselor",
   });
   const [formErrors, setFormErrors] = useState({});
 
@@ -56,8 +52,8 @@ export default function UserManagement() {
           return;
         }
 
-        // Load initial data - fetch only users with role "user" by default
-        await fetchUsers(token, 1, "", "user", "all");
+        // Load initial data - fetch counselors by default
+        await fetchUsers(token, 1, "", "counselor", "all");
         setLoading(false);
       } catch (err) {
         console.error("❌ Admin verification failed:", err);
@@ -95,9 +91,6 @@ export default function UserManagement() {
     return emailRegex.test(email);
   };
 
-  const validatePassword = (password) => {
-    return password.length >= 6;
-  };
 
   const handleAddUser = async (e) => {
     e.preventDefault();
@@ -109,11 +102,6 @@ export default function UserManagement() {
       errors.email = "Email is required";
     } else if (!validateEmail(addForm.email)) {
       errors.email = "Invalid email format";
-    }
-    if (!addForm.password) {
-      errors.password = "Password is required";
-    } else if (!validatePassword(addForm.password)) {
-      errors.password = "Password must be at least 6 characters";
     }
 
     if (Object.keys(errors).length > 0) {
@@ -131,9 +119,9 @@ export default function UserManagement() {
         }
       );
 
-      setMessage({ type: "success", text: "User created successfully" });
+      setMessage({ type: "success", text: res.data.message || "User created successfully. Password setup link has been sent to their email." });
       setShowAddModal(false);
-      setAddForm({ name: "", email: "", password: "", role: "user" });
+      setAddForm({ name: "", email: "", role: "counselor" });
       setFormErrors({});
       await fetchUsers(token, currentPage, searchQuery, roleFilter, statusFilter);
       setTimeout(() => setMessage({ type: "", text: "" }), 3000);
@@ -192,7 +180,18 @@ export default function UserManagement() {
 
 
   const handleDeleteUser = async (userId, email) => {
-    if (!confirm(`Are you sure you want to permanently delete ${email}? This action cannot be undone.`)) {
+    const result = await Swal.fire({
+      title: "Delete User?",
+      html: `Are you sure you want to permanently delete <strong>${email}</strong>?<br>This action cannot be undone.`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#ef4444",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "Yes, delete",
+      cancelButtonText: "Cancel",
+    });
+
+    if (!result.isConfirmed) {
       return;
     }
 
@@ -215,53 +214,6 @@ export default function UserManagement() {
     }
   };
 
-  const handleResetPassword = async (e) => {
-    e.preventDefault();
-    const errors = {};
-
-    // Validation
-    if (!passwordForm.newPassword) {
-      errors.newPassword = "Password is required";
-    } else if (!validatePassword(passwordForm.newPassword)) {
-      errors.newPassword = "Password must be at least 6 characters";
-    }
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      errors.confirmPassword = "Passwords do not match";
-    }
-
-    if (Object.keys(errors).length > 0) {
-      setFormErrors(errors);
-      return;
-    }
-
-    try {
-      const token = localStorage.getItem("adminToken");
-      await axios.post(
-        `http://localhost:5000/api/admin/users/${selectedUser.id}/reset-password`,
-        { newPassword: passwordForm.newPassword },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-
-      setMessage({
-        type: "success",
-        text: "Password reset successfully. User will need to use the new password on next login.",
-      });
-      setShowPasswordModal(false);
-      setPasswordForm({ newPassword: "", confirmPassword: "" });
-      setFormErrors({});
-      setTimeout(() => setMessage({ type: "", text: "" }), 3000);
-    } catch (err) {
-      console.error("❌ Error resetting password:", err);
-      setMessage({
-        type: "error",
-        text: err.response?.data?.message || "Failed to reset password",
-      });
-      setTimeout(() => setMessage({ type: "", text: "" }), 3000);
-    }
-  };
-
   const openEditModal = (user) => {
     setSelectedUser(user);
     setEditForm({
@@ -273,11 +225,45 @@ export default function UserManagement() {
     setShowEditModal(true);
   };
 
-  const openPasswordModal = (user) => {
-    setSelectedUser(user);
-    setPasswordForm({ newPassword: "", confirmPassword: "" });
-    setFormErrors({});
-    setShowPasswordModal(true);
+  const handleSendResetLink = async (user) => {
+    const result = await Swal.fire({
+      title: "Send Reset Link?",
+      text: `Send password reset link to ${user.email}?`,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonColor: "#4f46e5",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "Yes, send link",
+      cancelButtonText: "Cancel",
+    });
+
+    if (!result.isConfirmed) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem("adminToken");
+      const res = await axios.post(
+        `http://localhost:5000/api/admin/users/${user.id}/reset-password`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      setMessage({
+        type: "success",
+        text: res.data.message || "Password reset link has been sent to the user's email.",
+      });
+      setTimeout(() => setMessage({ type: "", text: "" }), 5000);
+    } catch (err) {
+      console.error("❌ Error sending reset link:", err);
+      setMessage({
+        type: "error",
+        text: err.response?.data?.message || "Failed to send password reset link",
+      });
+      setTimeout(() => setMessage({ type: "", text: "" }), 5000);
+    }
   };
 
   const handleSearch = async (e) => {
@@ -307,23 +293,6 @@ export default function UserManagement() {
     }
   };
 
-  if (loading) {
-    return (
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          height: "100vh",
-          fontFamily: "'Montserrat', sans-serif",
-          background: "linear-gradient(135deg, #eef2ff, #c7d2fe)",
-        }}
-      >
-        <h2 style={{ color: "#111827" }}>Loading User Management...</h2>
-      </div>
-    );
-  }
-
   return (
     <div
       style={{
@@ -342,13 +311,22 @@ export default function UserManagement() {
         style={{
           maxWidth: 1400,
           width: "100%",
-          display: "flex",
-          flexDirection: "column",
-          gap: 20,
+          display: "grid",
+          gridTemplateColumns: "360px 1fr",
+          gap: 24,
         }}
       >
-        {/* Header */}
+        <AdminSidebar />
+
         <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 20,
+          }}
+        >
+          {/* Header */}
+          <div
           style={{
             background: "#fff",
             borderRadius: 16,
@@ -383,7 +361,7 @@ export default function UserManagement() {
             <button
               onClick={() => {
                 setShowAddModal(true);
-                setAddForm({ name: "", email: "", password: "", role: "user" });
+                setAddForm({ name: "", email: "", role: "counselor" });
                 setFormErrors({});
               }}
               style={{
@@ -453,7 +431,7 @@ export default function UserManagement() {
                 padding: "10px 15px",
                 borderRadius: 10,
                 border: "1px solid #e6e9ef",
-                background: "#fff",
+                background: "#4f46e5",
                 cursor: "pointer",
                 fontSize: 14,
               }}
@@ -461,7 +439,6 @@ export default function UserManagement() {
               <option value="all">All Roles</option>
               <option value="admin">Admin</option>
               <option value="counselor">Counselor</option>
-              <option value="user">User</option>
             </select>
             <select
               value={statusFilter}
@@ -475,7 +452,7 @@ export default function UserManagement() {
                 padding: "10px 15px",
                 borderRadius: 10,
                 border: "1px solid #e6e9ef",
-                background: "#fff",
+                background: "#4f46e5",
                 cursor: "pointer",
                 fontSize: 14,
               }}
@@ -503,9 +480,9 @@ export default function UserManagement() {
               onClick={() => {
                 const token = localStorage.getItem("adminToken");
                 setSearchQuery("");
-                setRoleFilter("user"); // Reset to "user" role
+                setRoleFilter("counselor"); // Reset to counselor role
                 setStatusFilter("all");
-                fetchUsers(token, 1, "", "user", "all");
+                fetchUsers(token, 1, "", "counselor", "all");
               }}
               style={{
                 padding: "10px 20px",
@@ -583,7 +560,7 @@ export default function UserManagement() {
                                 textTransform: "capitalize",
                               }}
                             >
-                              {user.role === "admin" ? "Admin" : user.role === "counselor" ? "Counselor" : "User"}
+                              {user.role === "admin" ? "Admin" : "Counselor"}
                             </span>
                           </td>
                           <td style={{ padding: "14px 8px" }}>
@@ -622,7 +599,7 @@ export default function UserManagement() {
                                 Edit
                               </button>
                               <button
-                                onClick={() => openPasswordModal(user)}
+                                onClick={() => handleSendResetLink(user)}
                                 style={{
                                   padding: "6px 12px",
                                   borderRadius: 8,
@@ -634,7 +611,7 @@ export default function UserManagement() {
                                   fontSize: 12,
                                 }}
                               >
-                                Reset Password
+                                Send Reset Link
                               </button>
                               <button
                                 onClick={() => handleDeleteUser(user.id, user.email)}
@@ -722,6 +699,9 @@ export default function UserManagement() {
         </div>
       </div>
 
+      {/* Close grid container */}
+      </div>
+
       {/* Add User Modal */}
       {showAddModal && (
         <div
@@ -793,26 +773,9 @@ export default function UserManagement() {
                   }}
                 />
                 {formErrors.email && <p style={{ color: "#ef4444", fontSize: 12, marginTop: 4 }}>{formErrors.email}</p>}
-              </div>
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ display: "block", color: "#6b7280", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>
-                  Password *
-                </label>
-                <input
-                  type="password"
-                  value={addForm.password}
-                  onChange={(e) => setAddForm({ ...addForm, password: e.target.value })}
-                  style={{
-                    width: "100%",
-                    padding: "10px 15px",
-                    borderRadius: 10,
-                    border: formErrors.password ? "1px solid #ef4444" : "1px solid #e6e9ef",
-                    outline: "none",
-                    fontSize: 14,
-                  }}
-                />
-                {formErrors.password && <p style={{ color: "#ef4444", fontSize: 12, marginTop: 4 }}>{formErrors.password}</p>}
-                <p style={{ color: "#9ca3af", fontSize: 12, marginTop: 4 }}>Minimum 6 characters</p>
+                <p style={{ color: "#9ca3af", fontSize: 12, marginTop: 4 }}>
+                  A password setup link will be sent to the user's email address.
+                </p>
               </div>
               <div style={{ marginBottom: 20 }}>
                 <label style={{ display: "block", color: "#6b7280", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>
@@ -830,7 +793,6 @@ export default function UserManagement() {
                     fontSize: 14,
                   }}
                 >
-                  <option value="user">User</option>
                   <option value="counselor">Counselor</option>
                   <option value="admin">Admin</option>
                 </select>
@@ -963,7 +925,6 @@ export default function UserManagement() {
                     fontSize: 14,
                   }}
                 >
-                  <option value="user">User</option>
                   <option value="counselor">Counselor</option>
                   <option value="admin">Admin</option>
                 </select>
@@ -1008,123 +969,6 @@ export default function UserManagement() {
         </div>
       )}
 
-      {/* Reset Password Modal */}
-      {showPasswordModal && selectedUser && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: "rgba(0,0,0,0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-          }}
-          onClick={() => {
-            setShowPasswordModal(false);
-            setFormErrors({});
-          }}
-        >
-          <div
-            style={{
-              background: "#fff",
-              borderRadius: 16,
-              padding: 24,
-              maxWidth: 500,
-              width: "90%",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 style={{ color: "#4f46e5", marginTop: 0 }}>Reset Password</h2>
-            <p style={{ color: "#6b7280", marginBottom: 20 }}>
-              Reset password for: <strong>{selectedUser.email}</strong>
-            </p>
-            <form onSubmit={handleResetPassword}>
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ display: "block", color: "#6b7280", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>
-                  New Password *
-                </label>
-                <input
-                  type="password"
-                  value={passwordForm.newPassword}
-                  onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
-                  style={{
-                    width: "100%",
-                    padding: "10px 15px",
-                    borderRadius: 10,
-                    border: formErrors.newPassword ? "1px solid #ef4444" : "1px solid #e6e9ef",
-                    outline: "none",
-                    fontSize: 14,
-                  }}
-                />
-                {formErrors.newPassword && (
-                  <p style={{ color: "#ef4444", fontSize: 12, marginTop: 4 }}>{formErrors.newPassword}</p>
-                )}
-                <p style={{ color: "#9ca3af", fontSize: 12, marginTop: 4 }}>Minimum 6 characters</p>
-              </div>
-              <div style={{ marginBottom: 20 }}>
-                <label style={{ display: "block", color: "#6b7280", fontSize: 14, fontWeight: 600, marginBottom: 8 }}>
-                  Confirm Password *
-                </label>
-                <input
-                  type="password"
-                  value={passwordForm.confirmPassword}
-                  onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
-                  style={{
-                    width: "100%",
-                    padding: "10px 15px",
-                    borderRadius: 10,
-                    border: formErrors.confirmPassword ? "1px solid #ef4444" : "1px solid #e6e9ef",
-                    outline: "none",
-                    fontSize: 14,
-                  }}
-                />
-                {formErrors.confirmPassword && (
-                  <p style={{ color: "#ef4444", fontSize: 12, marginTop: 4 }}>{formErrors.confirmPassword}</p>
-                )}
-              </div>
-              <div style={{ display: "flex", gap: 12 }}>
-                <button
-                  type="submit"
-                  style={{
-                    flex: 1,
-                    padding: "10px 20px",
-                    borderRadius: 10,
-                    border: "none",
-                    background: "linear-gradient(90deg,#06b6d4,#3b82f6)",
-                    color: "#fff",
-                    cursor: "pointer",
-                    fontWeight: 600,
-                  }}
-                >
-                  Reset Password
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowPasswordModal(false);
-                    setFormErrors({});
-                  }}
-                  style={{
-                    padding: "10px 20px",
-                    borderRadius: 10,
-                    border: "1px solid #e6e9ef",
-                    background: "#fff",
-                    color: "#6b7280",
-                    cursor: "pointer",
-                    fontWeight: 600,
-                  }}
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

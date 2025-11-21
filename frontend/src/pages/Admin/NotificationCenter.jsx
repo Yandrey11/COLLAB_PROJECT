@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import Swal from "sweetalert2";
+import AdminSidebar from "../../components/AdminSidebar";
 
 export default function NotificationCenter() {
   const navigate = useNavigate();
@@ -11,6 +13,7 @@ export default function NotificationCenter() {
   const [totalPages, setTotalPages] = useState(1);
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [message, setMessage] = useState({ type: "", text: "" });
 
   useEffect(() => {
@@ -33,7 +36,7 @@ export default function NotificationCenter() {
         }
 
         // Load notifications
-        await fetchNotifications(token);
+        await fetchNotifications(token, 1, "all", "all", "");
         setLoading(false);
       } catch (err) {
         console.error("❌ Admin verification failed:", err);
@@ -47,18 +50,26 @@ export default function NotificationCenter() {
     const interval = setInterval(() => {
       const token = localStorage.getItem("adminToken");
       if (token) {
-        fetchNotifications(token);
+        fetchNotifications(token, currentPage, statusFilter, categoryFilter, searchQuery);
       }
     }, 10000);
 
     return () => clearInterval(interval);
   }, [navigate]);
 
-  const fetchNotifications = async (token, page = 1, status = "all", category = "all") => {
+  const fetchNotifications = async (token, page = 1, status = "all", category = "all", search = "") => {
     try {
+      const params = { 
+        page, 
+        limit: 5, 
+        status, 
+        category, 
+        search: search.trim() // Trim whitespace from search
+      };
+      
       const res = await axios.get("http://localhost:5000/api/admin/notifications", {
         headers: { Authorization: `Bearer ${token}` },
-        params: { page, limit: 20, status, category },
+        params,
       });
 
       setNotifications(res.data.notifications || []);
@@ -67,14 +78,28 @@ export default function NotificationCenter() {
       setUnreadCount(res.data.unreadCount || 0);
     } catch (err) {
       console.error("❌ Error fetching notifications:", err);
-      setMessage({ type: "error", text: "Failed to load notifications" });
+      setMessage({ type: "error", text: err.response?.data?.message || "Failed to load notifications" });
       setTimeout(() => setMessage({ type: "", text: "" }), 3000);
     }
   };
 
   const handleFilter = async () => {
     const token = localStorage.getItem("adminToken");
-    await fetchNotifications(token, 1, statusFilter, categoryFilter);
+    setCurrentPage(1); // Reset to first page when filtering
+    await fetchNotifications(token, 1, statusFilter, categoryFilter, searchQuery);
+  };
+
+  const handleSearch = async (e) => {
+    e.preventDefault();
+    const token = localStorage.getItem("adminToken");
+    if (!token) return;
+    setCurrentPage(1); // Reset to first page when searching
+    setLoading(true);
+    try {
+      await fetchNotifications(token, 1, statusFilter, categoryFilter, searchQuery);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleMarkAsRead = async (notificationId) => {
@@ -89,7 +114,7 @@ export default function NotificationCenter() {
       );
 
       // Refresh notifications
-      await fetchNotifications(token, currentPage, statusFilter, categoryFilter);
+      await fetchNotifications(token, currentPage, statusFilter, categoryFilter, searchQuery);
     } catch (err) {
       console.error("❌ Error marking as read:", err);
       setMessage({ type: "error", text: "Failed to update notification" });
@@ -109,7 +134,7 @@ export default function NotificationCenter() {
       );
 
       // Refresh notifications
-      await fetchNotifications(token, currentPage, statusFilter, categoryFilter);
+      await fetchNotifications(token, currentPage, statusFilter, categoryFilter, searchQuery);
     } catch (err) {
       console.error("❌ Error marking as unread:", err);
       setMessage({ type: "error", text: "Failed to update notification" });
@@ -118,7 +143,18 @@ export default function NotificationCenter() {
   };
 
   const handleMarkAllAsRead = async () => {
-    if (!confirm("Mark all notifications as read?")) {
+    const result = await Swal.fire({
+      title: "Mark All as Read?",
+      text: "Mark all notifications as read?",
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonColor: "#4f46e5",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "Yes, mark all",
+      cancelButtonText: "Cancel",
+    });
+
+    if (!result.isConfirmed) {
       return;
     }
 
@@ -136,7 +172,7 @@ export default function NotificationCenter() {
       setTimeout(() => setMessage({ type: "", text: "" }), 3000);
 
       // Refresh notifications
-      await fetchNotifications(token, currentPage, statusFilter, categoryFilter);
+      await fetchNotifications(token, currentPage, statusFilter, categoryFilter, searchQuery);
     } catch (err) {
       console.error("❌ Error marking all as read:", err);
       setMessage({ type: "error", text: "Failed to update notifications" });
@@ -145,7 +181,18 @@ export default function NotificationCenter() {
   };
 
   const handleDelete = async (notificationId) => {
-    if (!confirm("Are you sure you want to delete this notification?")) {
+    const result = await Swal.fire({
+      title: "Delete Notification?",
+      text: "Are you sure you want to delete this notification?",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#ef4444",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "Yes, delete",
+      cancelButtonText: "Cancel",
+    });
+
+    if (!result.isConfirmed) {
       return;
     }
 
@@ -159,7 +206,7 @@ export default function NotificationCenter() {
       setTimeout(() => setMessage({ type: "", text: "" }), 3000);
 
       // Refresh notifications
-      await fetchNotifications(token, currentPage, statusFilter, categoryFilter);
+      await fetchNotifications(token, currentPage, statusFilter, categoryFilter, searchQuery);
     } catch (err) {
       console.error("❌ Error deleting notification:", err);
       setMessage({ type: "error", text: "Failed to delete notification" });
@@ -168,7 +215,18 @@ export default function NotificationCenter() {
   };
 
   const handleDeleteAllRead = async () => {
-    if (!confirm("Are you sure you want to delete all read notifications?")) {
+    const result = await Swal.fire({
+      title: "Delete All Read?",
+      text: "Are you sure you want to delete all read notifications?",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#ef4444",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "Yes, delete all",
+      cancelButtonText: "Cancel",
+    });
+
+    if (!result.isConfirmed) {
       return;
     }
 
@@ -182,7 +240,7 @@ export default function NotificationCenter() {
       setTimeout(() => setMessage({ type: "", text: "" }), 3000);
 
       // Refresh notifications
-      await fetchNotifications(token, currentPage, statusFilter, categoryFilter);
+      await fetchNotifications(token, currentPage, statusFilter, categoryFilter, searchQuery);
     } catch (err) {
       console.error("❌ Error deleting read notifications:", err);
       setMessage({ type: "error", text: "Failed to delete notifications" });
@@ -240,23 +298,6 @@ export default function NotificationCenter() {
     }
   };
 
-  if (loading) {
-    return (
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          height: "100vh",
-          fontFamily: "'Montserrat', sans-serif",
-          background: "linear-gradient(135deg, #eef2ff, #c7d2fe)",
-        }}
-      >
-        <h2 style={{ color: "#111827" }}>Loading Notification Center...</h2>
-      </div>
-    );
-  }
-
   return (
     <div
       style={{
@@ -273,15 +314,24 @@ export default function NotificationCenter() {
     >
       <div
         style={{
-          maxWidth: 1200,
+          maxWidth: 1400,
           width: "100%",
-          display: "flex",
-          flexDirection: "column",
-          gap: 20,
+          display: "grid",
+          gridTemplateColumns: "360px 1fr",
+          gap: 24,
         }}
       >
-        {/* Header */}
+        <AdminSidebar />
+
         <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 20,
+          }}
+        >
+          {/* Header */}
+          <div
           style={{
             background: "#fff",
             borderRadius: 16,
@@ -384,7 +434,22 @@ export default function NotificationCenter() {
             boxShadow: "0 10px 25px rgba(0,0,0,0.06)",
           }}
         >
-          <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+          <form onSubmit={handleSearch} style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+            <input
+              type="text"
+              placeholder="Search notifications..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                flex: 1,
+                minWidth: 200,
+                padding: "10px 15px",
+                borderRadius: 10,
+                border: "1px solid #e6e9ef",
+                outline: "none",
+                fontSize: 14,
+              }}
+            />
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
@@ -392,7 +457,8 @@ export default function NotificationCenter() {
                 padding: "10px 15px",
                 borderRadius: 10,
                 border: "1px solid #e6e9ef",
-                background: "#fff",
+                background: "#4f46e5",
+                color: "#fff",
                 cursor: "pointer",
                 fontSize: 14,
               }}
@@ -408,7 +474,8 @@ export default function NotificationCenter() {
                 padding: "10px 15px",
                 borderRadius: 10,
                 border: "1px solid #e6e9ef",
-                background: "#fff",
+                background: "#4f46e5",
+                color: "#fff",
                 cursor: "pointer",
                 fontSize: 14,
               }}
@@ -421,7 +488,7 @@ export default function NotificationCenter() {
               <option value="Info">Info</option>
             </select>
             <button
-              onClick={handleFilter}
+              type="submit"
               style={{
                 padding: "10px 20px",
                 borderRadius: 10,
@@ -432,14 +499,16 @@ export default function NotificationCenter() {
                 fontWeight: 600,
               }}
             >
-              Apply Filters
+              Search
             </button>
             <button
+              type="button"
               onClick={() => {
                 setStatusFilter("all");
                 setCategoryFilter("all");
+                setSearchQuery("");
                 const token = localStorage.getItem("adminToken");
-                fetchNotifications(token, 1, "all", "all");
+                fetchNotifications(token, 1, "all", "all", "");
               }}
               style={{
                 padding: "10px 20px",
@@ -453,7 +522,7 @@ export default function NotificationCenter() {
             >
               Reset
             </button>
-          </div>
+          </form>
         </div>
 
         {/* Notifications List */}
@@ -472,7 +541,7 @@ export default function NotificationCenter() {
             </div>
           ) : (
             <>
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {notifications.map((notification) => {
                   const categoryColors = getCategoryColor(notification.category);
                   const priorityBadge = getPriorityBadge(notification.priority);
@@ -483,23 +552,23 @@ export default function NotificationCenter() {
                     <div
                       key={notification.id}
                       style={{
-                        padding: 20,
-                        borderRadius: 12,
+                        padding: 12,
+                        borderRadius: 8,
                         border: isUnread ? "2px solid #4f46e5" : "1px solid #e6e9ef",
                         background: isUnread ? "#f8faff" : "#fff",
-                        boxShadow: isCritical ? "0 4px 12px rgba(220,38,38,0.15)" : "0 2px 8px rgba(0,0,0,0.04)",
+                        boxShadow: isCritical ? "0 2px 6px rgba(220,38,38,0.1)" : "0 1px 4px rgba(0,0,0,0.02)",
                       }}
                     >
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                         <div style={{ flex: 1 }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
-                            <span style={{ fontSize: 20 }}>{categoryColors.icon}</span>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
+                            <span style={{ fontSize: 14 }}>{categoryColors.icon}</span>
                             <h3
                               style={{
                                 margin: 0,
                                 color: "#111827",
                                 fontWeight: isUnread ? 700 : 600,
-                                fontSize: 16,
+                                fontSize: 13,
                               }}
                             >
                               {notification.title}
@@ -507,11 +576,11 @@ export default function NotificationCenter() {
                             {isUnread && (
                               <span
                                 style={{
-                                  padding: "2px 8px",
-                                  borderRadius: 6,
+                                  padding: "2px 6px",
+                                  borderRadius: 4,
                                   background: "#4f46e5",
                                   color: "#fff",
-                                  fontSize: 11,
+                                  fontSize: 9,
                                   fontWeight: 600,
                                 }}
                               >
@@ -520,9 +589,9 @@ export default function NotificationCenter() {
                             )}
                             <span
                               style={{
-                                padding: "4px 10px",
-                                borderRadius: 8,
-                                fontSize: 11,
+                                padding: "2px 8px",
+                                borderRadius: 6,
+                                fontSize: 9,
                                 fontWeight: 600,
                                 background: categoryColors.bg,
                                 color: categoryColors.color,
@@ -532,9 +601,9 @@ export default function NotificationCenter() {
                             </span>
                             <span
                               style={{
-                                padding: "4px 10px",
-                                borderRadius: 8,
-                                fontSize: 11,
+                                padding: "2px 8px",
+                                borderRadius: 6,
+                                fontSize: 9,
                                 fontWeight: 600,
                                 background: priorityBadge.bg,
                                 color: priorityBadge.color,
@@ -543,26 +612,26 @@ export default function NotificationCenter() {
                               {priorityBadge.text}
                             </span>
                           </div>
-                          <p style={{ color: "#6b7280", margin: "8px 0", fontSize: 14, lineHeight: 1.6 }}>
+                          <p style={{ color: "#6b7280", margin: "4px 0", fontSize: 12, lineHeight: 1.4 }}>
                             {notification.description}
                           </p>
-                          <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 12 }}>
-                            <span style={{ color: "#9ca3af", fontSize: 12 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 8, flexWrap: "wrap" }}>
+                            <span style={{ color: "#9ca3af", fontSize: 10 }}>
                               {formatTime(notification.createdAt)}
                             </span>
-                            <div style={{ display: "flex", gap: 8 }}>
+                            <div style={{ display: "flex", gap: 6 }}>
                               {isUnread ? (
                                 <button
                                   onClick={() => handleMarkAsRead(notification.id)}
                                   style={{
-                                    padding: "6px 12px",
-                                    borderRadius: 8,
+                                    padding: "4px 10px",
+                                    borderRadius: 6,
                                     border: "1px solid #e6e9ef",
                                     background: "#fff",
                                     color: "#4f46e5",
                                     cursor: "pointer",
                                     fontWeight: 600,
-                                    fontSize: 12,
+                                    fontSize: 10,
                                   }}
                                 >
                                   Mark Read
@@ -571,14 +640,14 @@ export default function NotificationCenter() {
                                 <button
                                   onClick={() => handleMarkAsUnread(notification.id)}
                                   style={{
-                                    padding: "6px 12px",
-                                    borderRadius: 8,
+                                    padding: "4px 10px",
+                                    borderRadius: 6,
                                     border: "1px solid #e6e9ef",
                                     background: "#fff",
                                     color: "#6b7280",
                                     cursor: "pointer",
                                     fontWeight: 600,
-                                    fontSize: 12,
+                                    fontSize: 10,
                                   }}
                                 >
                                   Mark Unread
@@ -587,14 +656,14 @@ export default function NotificationCenter() {
                               <button
                                 onClick={() => handleDelete(notification.id)}
                                 style={{
-                                  padding: "6px 12px",
-                                  borderRadius: 8,
+                                  padding: "4px 10px",
+                                  borderRadius: 6,
                                   border: "1px solid #e6e9ef",
                                   background: "#fff",
                                   color: "#ef4444",
                                   cursor: "pointer",
                                   fontWeight: 600,
-                                  fontSize: 12,
+                                  fontSize: 10,
                                 }}
                               >
                                 Delete
@@ -627,7 +696,7 @@ export default function NotificationCenter() {
                     onClick={() => {
                       const token = localStorage.getItem("adminToken");
                       if (currentPage > 1) {
-                        fetchNotifications(token, currentPage - 1, statusFilter, categoryFilter);
+                        fetchNotifications(token, currentPage - 1, statusFilter, categoryFilter, searchQuery);
                       }
                     }}
                     disabled={currentPage <= 1}
@@ -647,7 +716,7 @@ export default function NotificationCenter() {
                     onClick={() => {
                       const token = localStorage.getItem("adminToken");
                       if (currentPage < totalPages) {
-                        fetchNotifications(token, currentPage + 1, statusFilter, categoryFilter);
+                        fetchNotifications(token, currentPage + 1, statusFilter, categoryFilter, searchQuery);
                       }
                     }}
                     disabled={currentPage >= totalPages}
@@ -668,6 +737,9 @@ export default function NotificationCenter() {
             </>
           )}
         </div>
+      </div>
+
+      {/* Close grid container */}
       </div>
     </div>
   );
