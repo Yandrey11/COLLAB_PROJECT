@@ -20,10 +20,6 @@ const app = express();
 // ✅ Passport configurations (must come before routes)
 import "./config/passport.js";              // user auth (Google/local)
 import "./config/adminPassport.js";         // admin Google/local auth
-import "./config/passport-github.js";       // GitHub auth config (added)
-
-// github routes import (kept)
-import githubAuthRoutes from "./routes/githubAuth.js";
 
 // ✅ Core middlewares
 app.use(
@@ -96,7 +92,6 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/admin", adminRefreshRoutes);
 app.use("/api/admin", adminSignupRoutes);
 app.use("/auth/admin", adminGoogleAuthRoutes);
-app.use("/auth", githubAuthRoutes); // GitHub auth route (kept)
 app.use("/api/reset", resetRoutes);
 app.use("/api/records", recordRoutes);
 app.use("/auth", googleDriveRoutes);
