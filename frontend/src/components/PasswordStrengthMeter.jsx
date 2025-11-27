@@ -1,60 +1,142 @@
 import React from "react";
-import { validatePassword } from "../utils/passwordValidation.js";
+import { validatePassword } from "../utils/passwordValidation";
 
-export default function PasswordStrengthMeter({ password }) {
-  const { strength, rules } = validatePassword(password || "");
+/**
+ * Google-Style Password Strength Meter Component
+ * Displays real-time password validation feedback with helpful hints
+ */
+export default function PasswordStrengthMeter({ password, email = "", name = "" }) {
+  const validation = validatePassword(password || "", { email, name });
 
-  const config = {
+  // Strength configuration with Google-style colors
+  const strengthConfig = {
     Weak: {
       barClass: "bg-red-500",
-      labelClass: "text-red-600",
+      labelClass: "text-red-600 dark:text-red-400",
       widthClass: "w-1/3",
+      label: "Weak",
+      icon: "⚠️",
     },
     Medium: {
-      barClass: "bg-yellow-400",
-      labelClass: "text-yellow-600",
+      barClass: "bg-yellow-500",
+      labelClass: "text-yellow-600 dark:text-yellow-400",
       widthClass: "w-2/3",
+      label: "Medium",
+      icon: "⚡",
     },
     Strong: {
-      barClass: "bg-emerald-500",
-      labelClass: "text-emerald-600",
+      barClass: "bg-green-500",
+      labelClass: "text-green-600 dark:text-green-400",
       widthClass: "w-full",
+      label: "Strong",
+      icon: "✅",
     },
-  }[strength] || {
-    barClass: "bg-gray-300",
-    labelClass: "text-gray-500",
-    widthClass: "w-1/4",
   };
+
+  const config = strengthConfig[validation.strength] || strengthConfig.Weak;
+
+  // Don't show if password is empty
+  if (!password || password.length === 0) {
+    return null;
+  }
 
   return (
     <div className="mt-2 space-y-2">
-      <div className="h-1.5 w-full rounded-full bg-gray-200 overflow-hidden">
+      {/* Strength Bar */}
+      <div className="h-2 w-full rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
         <div
-          className={`h-full ${config.barClass} ${config.widthClass} transition-all duration-200`}
+          className={`h-full ${config.barClass} ${config.widthClass} transition-all duration-300 ease-out`}
         />
       </div>
-      <p className={`text-xs font-medium ${config.labelClass}`}>
-        Strength: {strength || "Weak"}
-      </p>
-      <ul className="mt-1 space-y-0.5 text-xs">
-        {rules.map((rule) => (
-          <li
-            key={rule.id}
-            className="flex items-center gap-1"
-          >
-            <span
-              className={`inline-block h-1.5 w-1.5 rounded-full ${
-                rule.passed ? "bg-emerald-500" : "bg-gray-300"
-              }`}
-            />
-            <span
-              className={rule.passed ? "text-emerald-600" : "text-gray-500"}
+
+      {/* Strength Label */}
+      <div className="flex items-center gap-2">
+        <span className={`text-sm font-semibold ${config.labelClass}`}>
+          {config.icon} {config.label}
+        </span>
+        {validation.hasPersonalInfo && (
+          <span className="text-xs text-orange-600 dark:text-orange-400">
+            Avoid personal info
+          </span>
+        )}
+      </div>
+
+      {/* Validation Rules with Hints */}
+      <div className="mt-2 space-y-1.5">
+        {validation.rules.map((rule) => {
+          // Skip the "noSpaces" rule from visual display (we'll show it as an error if violated)
+          if (rule.id === "noSpaces" && rule.passed) {
+            return null;
+          }
+
+          return (
+            <div
+              key={rule.id}
+              className="flex items-start gap-2 text-xs"
             >
-              {rule.label}
-            </span>
-          </li>
-        ))}
-      </ul>
+              {/* Check/X Icon */}
+              <span
+                className={`flex-shrink-0 mt-0.5 ${
+                  rule.passed
+                    ? "text-green-600 dark:text-green-400"
+                    : "text-gray-400 dark:text-gray-500"
+                }`}
+              >
+                {rule.passed ? "✓" : "○"}
+              </span>
+
+              {/* Rule Text */}
+              <span
+                className={
+                  rule.passed
+                    ? "text-green-700 dark:text-green-300 line-through"
+                    : "text-gray-600 dark:text-gray-400"
+                }
+              >
+                {rule.passed ? rule.label : rule.hint || rule.label}
+              </span>
+            </div>
+          );
+        })}
+
+        {/* Show space error if present */}
+        {validation.hasLeadingTrailingSpaces && (
+          <div className="flex items-start gap-2 text-xs text-red-600 dark:text-red-400">
+            <span>✗</span>
+            <span>Password cannot contain spaces at the beginning or end.</span>
+          </div>
+        )}
+
+        {/* Show personal info warning */}
+        {validation.hasPersonalInfo && (
+          <div className="flex items-start gap-2 text-xs text-orange-600 dark:text-orange-400">
+            <span>⚠</span>
+            <span>Avoid using your name or email in your password.</span>
+          </div>
+        )}
+
+        {/* Show common password warning */}
+        {!validation.rules.find((r) => r.id === "notCommon")?.passed && password && (
+          <div className="flex items-start gap-2 text-xs text-red-600 dark:text-red-400">
+            <span>✗</span>
+            <span>Avoid using common or easily guessed passwords.</span>
+          </div>
+        )}
+      </div>
+
+      {/* Helpful Hints for Weak Passwords */}
+      {validation.strength === "Weak" && password.length > 0 && (
+        <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+          <p className="text-xs font-semibold text-blue-900 dark:text-blue-200 mb-1.5">
+            Tips for a stronger password:
+          </p>
+          <ul className="text-xs text-blue-800 dark:text-blue-300 space-y-1 list-disc list-inside">
+            {validation.hints.slice(0, 3).map((hint, index) => (
+              <li key={index}>{hint}</li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
