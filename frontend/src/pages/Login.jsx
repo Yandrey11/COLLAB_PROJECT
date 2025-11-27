@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import ReCAPTCHA from "react-google-recaptcha";
@@ -13,13 +13,44 @@ function Login() {
   // ✅ Your reCAPTCHA site key
   const SITE_KEY = "6Lf-8vErAAAAAGohFk-EE6OaLY60jkwo1gTH05B7";
 
+  // ✅ Check for error messages from URL (e.g., from Google OAuth failure)
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const error = urlParams.get("error");
+    
+    if (error) {
+      // Clean up URL
+      window.history.replaceState({}, document.title, "/login");
+      
+      let errorMessage = "Login failed. Please try again.";
+      switch (error) {
+        case "unauthorized":
+          errorMessage = "Authentication failed. Please try again.";
+          break;
+        case "google_auth_failed":
+          errorMessage = "Google authentication failed. Please try again or use email/password.";
+          break;
+        case "server_error":
+          errorMessage = "Server error. Please try again later.";
+          break;
+        default:
+          errorMessage = "Login failed. Please try again.";
+      }
+      
+      Swal.fire({
+        icon: "error",
+        title: "Login Failed",
+        text: errorMessage,
+      });
+    }
+  }, []);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    
-
     try {
-      const res = await axios.post("http://localhost:5000/api/auth/login", {
+      const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
+      const res = await axios.post(`${baseUrl}/api/auth/login`, {
         email,
         password,
         recaptchaToken, // ✅ match backend variable name
@@ -47,266 +78,103 @@ function Login() {
     }
   };
   const handleFacebookLogin = () => {
-  window.location.href = "http://localhost:5000/auth/facebook";
-};
+    const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
+    window.location.href = `${baseUrl}/auth/facebook`;
+  };
 
   return (
-    <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css?family=Montserrat:400,600,700&display=swap');
-        * { box-sizing: border-box; }
-        html, body, #root { height: 100%; margin: 0; padding: 0; }
-        .page {
-          width: 100%;
-          min-height: 100vh;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: linear-gradient(135deg, #eef2ff, #c7d2fe);
-          font-family: 'Montserrat', sans-serif;
-          padding: 32px 16px;
-        }
-        .cardWrapper {
-          width: 100%;
-          max-width: 520px;
-          background: #fff;
-          border-radius: 24px;
-          box-shadow: 0 25px 70px rgba(79, 70, 229, 0.15);
-          padding: 48px 40px;
-        }
-        .formSection {
-          display: flex;
-          flex-direction: column;
-          gap: 18px;
-        }
-        .heading h1 {
-          margin: 0;
-          font-size: 28px;
-          color: #111827;
-        }
-        .heading p {
-          margin: 6px 0 0 0;
-          color: #6b7280;
-          font-size: 15px;
-        }
-        form {
-          display: flex;
-          flex-direction: column;
-          gap: 14px;
-        }
-        label {
-          font-size: 13px;
-          font-weight: 600;
-          color: #374151;
-        }
-        input {
-          width: 100%;
-          padding: 12px 14px;
-          border-radius: 10px;
-          border: 1px solid #e5e7eb;
-          font-size: 15px;
-          background: #f9fafb;
-          transition: border 0.2s ease;
-        }
-        input:focus {
-          outline: none;
-          border-color: #4f46e5;
-          background: #fff;
-        }
-        .actions {
-          display: flex;
-          justify-content: flex-end;
-          font-size: 13px;
-        }
-        .link {
-          color: #4f46e5;
-          text-decoration: none;
-          font-weight: 600;
-        }
-        .primaryBtn {
-          border: none;
-          background: linear-gradient(120deg,#4f46e5,#7c3aed);
-          color: #fff;
-          padding: 14px;
-          border-radius: 12px;
-          cursor: pointer;
-          font-weight: 700;
-          font-size: 15px;
-          transition: transform 0.15s ease, box-shadow 0.15s ease;
-        }
-        .primaryBtn:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 12px 25px rgba(79,70,229,0.25);
-        }
-        .divider {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          font-size: 12px;
-          text-transform: uppercase;
-          color: #9ca3af;
-          letter-spacing: 0.08em;
-        }
-        .divider::before,
-        .divider::after {
-          content: "";
-          flex: 1;
-          height: 1px;
-          background: #e5e7eb;
-        }
-        .socialButtons {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-          gap: 10px;
-        }
-        .socialBtn,
-        .googleBtn {
-          border: 1px solid #e5e7eb;
-          border-radius: 10px;
-          background: #fff;
-          padding: 10px 14px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          font-weight: 600;
-          cursor: pointer;
-          color: #374151;
-          text-decoration: none;
-          transition: border 0.2s ease, transform 0.15s ease;
-        }
-        .socialBtn:hover,
-        .googleBtn:hover {
-          transform: translateY(-1px);
-          border-color: #c7d2fe;
-        }
-        .backBtn {
-          align-self: flex-start;
-          background: transparent;
-          color: #6b7280;
-          border: 1px solid #e5e7eb;
-          padding: 8px 16px;
-          border-radius: 999px;
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          font-size: 13px;
-          font-weight: 600;
-          cursor: pointer;
-        }
-        .signupBtn {
-          background: #fff;
-          color: #4f46e5;
-          border: 1px solid #dbeafe;
-          padding: 12px;
-          border-radius: 12px;
-          font-weight: 600;
-          cursor: pointer;
-        }
-        .metaInfo {
-          font-size: 13px;
-          color: #9ca3af;
-          text-align: center;
-        }
-        @media (max-width: 520px) {
-          .cardWrapper {
-            padding: 32px 24px;
-          }
-        }
-      `}</style>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 to-indigo-100 font-sans p-4">
+      <div className="w-full max-w-lg bg-white rounded-3xl shadow-2xl p-8 md:p-12" role="main">
+        <section className="flex flex-col gap-6" aria-label="Login form">
+          <button
+            type="button"
+            className="self-start flex items-center gap-2 px-4 py-2 rounded-full border border-gray-200 text-gray-500 text-sm font-semibold hover:bg-gray-50 hover:text-gray-700 transition-all"
+            onClick={() => navigate("/")}
+            aria-label="Go back to landing page"
+          >
+            ← Go Back
+          </button>
 
-      <div className="page">
-        <div className="cardWrapper" role="main">
-          <section className="formSection" aria-label="Login form">
-            <button
-              type="button"
-              className="backBtn"
-              onClick={() => navigate("/")}
-              aria-label="Go back to landing page"
-            >
-              ← Go Back
-            </button>
+          <div className="mb-2">
+            <h1 className="text-3xl font-bold text-gray-900">Welcome back</h1>
+            <p className="text-gray-500 mt-2 text-sm">Sign in to access records, reports, notifications, and more.</p>
+          </div>
 
-            <div className="heading">
-              <h1>Welcome back</h1>
-              <p>Sign in to access records, reports, notifications, and more.</p>
+          <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+            <div>
+              <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-1">Email address</label>
+              <input
+                id="email"
+                type="email"
+                placeholder="Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoComplete="email"
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+              />
             </div>
 
-            <form onSubmit={handleSubmit}>
-              <div>
-                <label htmlFor="email">Email address</label>
-                <input
-                  id="email"
-                  type="email"
-                  placeholder="Email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  autoComplete="email"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="password">Password</label>
-                <input
-                  id="password"
-                  type="password"
-                  placeholder="Enter your password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  autoComplete="current-password"
-                />
-              </div>
-
-              <ReCAPTCHA
-                sitekey={SITE_KEY}
-                onChange={(token) => setRecaptchaToken(token)}
-                style={{ alignSelf: "center" }}
+            <div>
+              <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-1">Password</label>
+              <input
+                id="password"
+                type="password"
+                placeholder="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
               />
+            </div>
 
-              <div className="actions">
-                <a className="link" href="./forgot-password">
-                  Forgot password?
-                </a>
-              </div>
+            <ReCAPTCHA
+              sitekey={SITE_KEY}
+              onChange={(token) => setRecaptchaToken(token)}
+              style={{ alignSelf: "center" }}
+            />
 
-              <button type="submit" className="primaryBtn">
-                Log in to Dashboard
-              </button>
+            <div className="flex justify-end text-sm">
+              <a className="text-indigo-600 font-semibold hover:text-indigo-500" href="./forgot-password">
+                Forgot password?
+              </a>
+            </div>
 
-              <div className="divider">
-                <span>or continue with</span>
-              </div>
+            <button type="submit" className="w-full py-3.5 rounded-xl font-bold text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200">
+              Log in to Dashboard
+            </button>
 
-              <div className="socialButtons">
-                <button
-                  type="button"
-                  className="googleBtn"
-                  onClick={() => {
-                    window.location.href = "http://localhost:5000/auth/google";
-                  }}
-                  aria-label="Sign in with Google"
-                >
-                  <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="google" width="18" />
-                  Google
-                </button>
-              </div>
+            <div className="relative flex items-center gap-4 py-2 text-xs uppercase text-gray-400 font-semibold tracking-wider before:h-px before:flex-1 before:bg-gray-200 after:h-px after:flex-1 after:bg-gray-200">
+              <span>or continue with</span>
+            </div>
 
+            <div className="grid grid-cols-1 gap-3">
               <button
                 type="button"
-                className="signupBtn"
-                onClick={() => navigate("/signup")}
+                className="flex items-center justify-center gap-3 w-full py-2.5 rounded-xl border border-gray-200 bg-white text-gray-700 font-semibold hover:bg-gray-50 hover:border-indigo-100 transition-all"
+                onClick={() => {
+                  const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
+                  window.location.href = `${baseUrl}/auth/google`;
+                }}
+                aria-label="Sign in with Google"
               >
-                Create a counselor account
+                <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="google" width="18" />
+                Google
               </button>
+            </div>
 
-            
-            </form>
-          </section>
-        </div>
+            <button
+              type="button"
+              className="w-full py-3 rounded-xl font-semibold text-indigo-600 border border-indigo-100 bg-white hover:bg-indigo-50 transition-all"
+              onClick={() => navigate("/signup")}
+            >
+              Create a counselor account
+            </button>
+          </form>
+        </section>
       </div>
-    </>
+    </div>
   );
 }
 

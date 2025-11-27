@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import Swal from "sweetalert2";
 import AdminSidebar from "../../components/AdminSidebar";
+import { initializeTheme } from "../../utils/themeUtils";
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -26,13 +27,10 @@ export default function AdminDashboard() {
   const notificationsIntervalRef = useRef(null);
   const summaryIntervalRef = useRef(null);
 
-  // Users list: search / filter / paginate
-  const [users, setUsers] = useState([]);
-  const [usersPage, setUsersPage] = useState(1);
-  const [usersTotalPages, setUsersTotalPages] = useState(1);
-  const [usersQuery, setUsersQuery] = useState("");
-  const [usersStatusFilter, setUsersStatusFilter] = useState("all");
-  const usersLimit = 10;
+  // Initialize theme on mount
+  useEffect(() => {
+    initializeTheme();
+  }, []);
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -75,8 +73,8 @@ export default function AdminDashboard() {
         // verified admin: store admin object and then load dashboard data
         setAdmin(res.data);
 
-        // fetch summary, users and start notifications polling
-        await Promise.all([fetchSummary(token), fetchUsers(token, 1, usersQuery, usersStatusFilter)]);
+        // fetch summary and start notifications polling
+        await Promise.all([fetchSummary(token)]);
         startNotificationsPolling(token);
         startSummaryPolling(token); // Start polling for recent activities
       } catch (err) {
@@ -127,24 +125,6 @@ export default function AdminDashboard() {
     }
   };
 
-  // Users fetch with pagination, search and filter
-  const fetchUsers = async (token, page = 1, q = "", status = "all") => {
-    try {
-      const res = await axios.get("http://localhost:5000/api/admin/users", {
-        headers: { Authorization: `Bearer ${token}` },
-        params: { page, limit: usersLimit, q, status },
-      });
-      // expected: { users: [], totalPages: n }
-      setUsers(res.data.users || []);
-      setUsersTotalPages(res.data.totalPages || 1);
-      setUsersPage(page);
-    } catch (err) {
-      console.warn("Could not fetch users:", err.message || err);
-      setUsers([]);
-      setUsersTotalPages(1);
-      setUsersPage(1);
-    }
-  };
 
   // Notifications polling to provide near-real-time alerts
   const startNotificationsPolling = (token) => {
@@ -202,18 +182,6 @@ export default function AdminDashboard() {
     }
   };
 
-  // handlers for users search/filter/pagination
-  const handleUsersSearch = async (e) => {
-    e.preventDefault();
-    const token = localStorage.getItem("adminToken");
-    await fetchUsers(token, 1, usersQuery, usersStatusFilter);
-  };
-
-  const handleUsersPage = async (newPage) => {
-    const token = localStorage.getItem("adminToken");
-    if (newPage < 1 || newPage > usersTotalPages) return;
-    await fetchUsers(token, newPage, usersQuery, usersStatusFilter);
-  };
 
   if (accessDenied) {
     return (
@@ -236,133 +204,25 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div
-      style={{
-        width: "100vw",
-        minHeight: "100vh",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        background: "linear-gradient(135deg, #eef2ff, #c7d2fe)",
-        fontFamily: "'Montserrat', sans-serif",
-        padding: "40px 16px",
-        gap: 20,
-      }}
-    >
-      <div
-        style={{
-          maxWidth: 1400,
-          width: "100%",
-          display: "grid",
-          gridTemplateColumns: "360px 1fr",
-          gap: 24,
-        }}
-      >
+    <div className="min-h-screen w-full flex flex-col items-center bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 font-sans p-4 md:p-8 gap-6">
+      <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-6">
         {/* Left: Overview / Navigation */}
         <AdminSidebar />
 
         {/* Right: Main content */}
         <main>
           {/* Welcome Header */}
-          <div
-            style={{
-              background: "#fff",
-              borderRadius: 16,
-              padding: 24,
-              boxShadow: "0 10px 25px rgba(0,0,0,0.06)",
-              marginBottom: 16,
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm mb-4">
+            <div className="flex justify-between items-start">
               <div>
-                <h1 style={{ color: "#111827", margin: 0 }}>
+                <h1 className="text-gray-900 dark:text-gray-100 m-0 text-2xl font-bold">
                   Welcome{admin?.name ? `, ${admin.name}` : ""} 🎉
                 </h1>
-                <p style={{ color: "#6b7280", marginTop: 6 }}>
+                <p className="text-gray-600 dark:text-gray-400 mt-2">
                   Manage users, monitor system activity, and access administrative tools.
                 </p>
               </div>
 
-              <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
-                {/* Notifications summary */}
-                <div
-                  title="Notifications"
-                  onClick={() => navigate("/admin/notifications")}
-                  style={{
-                    position: "relative",
-                    cursor: "pointer",
-                    padding: "8px 12px",
-                    background: "#f5f5f7",
-                    borderRadius: 10,
-                    fontSize: 18,
-                    transition: "background 0.2s",
-                  }}
-                  onMouseOver={(e) => (e.currentTarget.style.background = "#eef2ff")}
-                  onMouseOut={(e) => (e.currentTarget.style.background = "#f5f5f7")}
-                >
-                  🔔
-                  {unreadNotificationCount > 0 && (
-                    <span
-                      style={{
-                        position: "absolute",
-                        top: -6,
-                        right: -6,
-                        background: "#ef4444",
-                        color: "#fff",
-                        borderRadius: "50%",
-                        width: 20,
-                        height: 20,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: 12,
-                        fontWeight: 700,
-                      }}
-                    >
-                      {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
-                    </span>
-                  )}
-                </div>
-
-                {admin && (
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                    <div
-                      style={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: "50%",
-                        background: "#eef2ff",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        overflow: "hidden",
-                      }}
-                    >
-                      {admin.avatar ? (
-                        <img
-                          src={admin.avatar}
-                          alt="profile"
-                          style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                        />
-                      ) : (
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          viewBox="0 0 24 24"
-                          width="20"
-                          height="20"
-                          fill="#4f46e5"
-                        >
-                          <path d="M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 5v2h20v-2c0-3.3-6.7-5-10-5z" />
-                        </svg>
-                      )}
-                    </div>
-                    <div style={{ textAlign: "right" }}>
-                      <div style={{ fontSize: 13, color: "#6b7280" }}>Admin Account</div>
-                      <div style={{ fontWeight: 700, color: "#111827" }}>{admin.name || "—"}</div>
-                    </div>
-                  </div>
-                )}
-              </div>
             </div>
           </div>
 
@@ -370,71 +230,41 @@ export default function AdminDashboard() {
           
 
           {/* Overview / Summary Cards */}
-          <section
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-              gap: 16,
-              marginBottom: 16,
-            }}
-          >
-            <div
-              style={{
-                backgroundColor: "#fff",
-                borderRadius: 16,
-                boxShadow: "0 10px 25px rgba(0,0,0,0.06)",
-                padding: 20,
-              }}
-            >
-              <h3 style={{ color: "#6b7280", fontSize: 14, fontWeight: 500, margin: 0 }}>Total Users</h3>
-              <p style={{ color: "#4f46e5", fontSize: 32, fontWeight: 700, marginTop: 10, marginBottom: 4 }}>
+          <section className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 flex flex-col h-56">
+              <h3 className="text-gray-600 dark:text-gray-400 text-xs font-medium m-0">Total Users</h3>
+              <p className="text-indigo-600 dark:text-indigo-400 text-2xl font-bold mt-2 mb-1">
                 {summary.totalUsers}
               </p>
-              <div style={{ display: "flex", gap: 12, marginTop: 8, fontSize: 12, color: "#6b7280" }}>
+              <div className="flex gap-2 mt-1 text-xs text-gray-600 dark:text-gray-400">
                 <span>
-                  <strong style={{ color: "#dc2626" }}>{summary.totalAdmins}</strong> Admin{summary.totalAdmins !== "—" && summary.totalAdmins !== 1 ? "s" : ""}
+                  <strong className="text-red-600 dark:text-red-400">{summary.totalAdmins}</strong> Admin{summary.totalAdmins !== "—" && summary.totalAdmins !== 1 ? "s" : ""}
                 </span>
                 <span>·</span>
                 <span>
-                  <strong style={{ color: "#2563eb" }}>{summary.totalCounselors}</strong> Counselor{summary.totalCounselors !== "—" && summary.totalCounselors !== 1 ? "s" : ""}
+                  <strong className="text-blue-600 dark:text-blue-400">{summary.totalCounselors}</strong> Counselor{summary.totalCounselors !== "—" && summary.totalCounselors !== 1 ? "s" : ""}
                 </span>
               </div>
             </div>
 
-            <div
-              style={{
-                backgroundColor: "#fff",
-                borderRadius: 16,
-                boxShadow: "0 10px 25px rgba(0,0,0,0.06)",
-                padding: 20,
-              }}
-            >
-              <h3 style={{ color: "#6b7280", fontSize: 14, fontWeight: 500, margin: 0 }}>Active / Inactive</h3>
-              <p style={{ color: "#10b981", fontSize: 24, fontWeight: 700, marginTop: 10, marginBottom: 0 }}>
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 flex flex-col h-56">
+              <h3 className="text-gray-600 dark:text-gray-400 text-xs font-medium m-0">Active / Inactive</h3>
+              <p className="text-green-600 dark:text-green-400 text-lg font-bold mt-2 mb-0">
                 {summary.active} active · {summary.inactive} inactive
               </p>
             </div>
 
-            <div
-              style={{
-                backgroundColor: "#fff",
-                borderRadius: 16,
-                boxShadow: "0 10px 25px rgba(0,0,0,0.06)",
-                padding: 20,
-                maxHeight: 300,
-                overflowY: "auto",
-              }}
-            >
-              <h3 style={{ color: "#6b7280", fontSize: 14, fontWeight: 500, margin: 0, marginBottom: 12 }}>Recent Activity</h3>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 flex flex-col h-56 overflow-hidden">
+              <h3 className="text-gray-600 dark:text-gray-400 text-xs font-medium m-0 mb-2">Recent Activity</h3>
+              <div className="flex flex-col gap-1.5 flex-1 overflow-y-auto">
                 {summary.recentActivity && summary.recentActivity.length > 0 ? (
                   summary.recentActivity.map((act) => (
                     <div 
                       key={act.id || act.timestamp} 
                       style={{ 
-                        padding: "10px 12px", 
+                        padding: "8px 10px", 
                         borderBottom: "1px solid #f3f4f6",
-                        borderRadius: 8,
+                        borderRadius: 6,
                         background: act.priority === "high" || act.priority === "critical" 
                           ? "rgba(239,68,68,0.05)" 
                           : "transparent",
@@ -454,23 +284,23 @@ export default function AdminDashboard() {
                       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
                         <div style={{ flex: 1 }}>
                           <div style={{ 
-                            fontSize: 13, 
+                            fontSize: 11, 
                             color: "#111827", 
                             fontWeight: 600,
-                            marginBottom: 4,
+                            marginBottom: 2,
                             display: "flex",
                             alignItems: "center",
-                            gap: 6,
+                            gap: 4,
                           }}>
                             {act.title || act.message}
                             {(act.priority === "high" || act.priority === "critical") && (
                               <span
                                 style={{
-                                  padding: "2px 6px",
-                                  borderRadius: 4,
+                                  padding: "1px 4px",
+                                  borderRadius: 3,
                                   background: "#dc2626",
                                   color: "#fff",
-                                  fontSize: 10,
+                                  fontSize: 9,
                                   fontWeight: 600,
                                 }}
                               >
@@ -478,24 +308,24 @@ export default function AdminDashboard() {
                               </span>
                             )}
                           </div>
-                          <div style={{ fontSize: 12, color: "#6b7280", lineHeight: 1.4 }}>
+                          <div style={{ fontSize: 10, color: "#6b7280", lineHeight: 1.3 }}>
                             {act.description}
                           </div>
                           <div style={{ 
-                            fontSize: 11, 
+                            fontSize: 9, 
                             color: "#9ca3af", 
-                            marginTop: 4,
+                            marginTop: 2,
                             display: "flex",
                             alignItems: "center",
-                            gap: 8,
+                            gap: 6,
                           }}>
                             <span>{act.time || new Date(act.timestamp).toLocaleString()}</span>
                             {act.category && (
                               <>
                                 <span>·</span>
                                 <span style={{ 
-                                  padding: "2px 6px",
-                                  borderRadius: 4,
+                                  padding: "1px 4px",
+                                  borderRadius: 3,
                                   background: act.category === "User Activity" 
                                     ? "rgba(59,130,246,0.1)" 
                                     : act.category === "Security Alert"
@@ -506,7 +336,7 @@ export default function AdminDashboard() {
                                     : act.category === "Security Alert"
                                     ? "#dc2626"
                                     : "#6b7280",
-                                  fontSize: 10,
+                                  fontSize: 9,
                                   fontWeight: 500,
                                 }}>
                                   {act.category}
@@ -519,12 +349,7 @@ export default function AdminDashboard() {
                     </div>
                   ))
                 ) : (
-                  <div style={{ 
-                    fontSize: 13, 
-                    color: "#9ca3af", 
-                    textAlign: "center",
-                    padding: "20px 0",
-                  }}>
+                  <div className="text-xs text-gray-400 dark:text-gray-500 text-center py-3">
                     No recent activity
                   </div>
                 )}
@@ -533,27 +358,19 @@ export default function AdminDashboard() {
 
             {/* Notifications / Alerts summary card */}
             <div
-              style={{
-                backgroundColor: "#fff",
-                borderRadius: 16,
-                boxShadow: "0 10px 25px rgba(0,0,0,0.06)",
-                padding: 20,
-                cursor: "pointer",
-              }}
+              className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 cursor-pointer flex flex-col h-56 hover:shadow-md transition-shadow"
               onClick={() => navigate("/admin/notifications")}
-              onMouseOver={(e) => (e.currentTarget.style.boxShadow = "0 10px 25px rgba(79,70,229,0.15)")}
-              onMouseOut={(e) => (e.currentTarget.style.boxShadow = "0 10px 25px rgba(0,0,0,0.06)")}
             >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                <h3 style={{ color: "#6b7280", fontSize: 14, fontWeight: 500, margin: 0 }}>Recent Notifications</h3>
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="text-gray-600 dark:text-gray-400 text-xs font-medium m-0">Recent Notifications</h3>
                 {unreadNotificationCount > 0 && (
                   <span
                     style={{
-                      padding: "2px 8px",
-                      borderRadius: 6,
+                      padding: "1px 6px",
+                      borderRadius: 4,
                       background: "#ef4444",
                       color: "#fff",
-                      fontSize: 11,
+                      fontSize: 9,
                       fontWeight: 600,
                     }}
                   >
@@ -561,37 +378,28 @@ export default function AdminDashboard() {
                   </span>
                 )}
               </div>
-              <div style={{ marginTop: 10 }}>
+              <div className="mt-2 flex-1 overflow-y-auto">
                 {notifications.length === 0 ? (
-                  <div style={{ color: "#9ca3af", fontSize: 13 }}>No new notifications</div>
+                  <div className="text-gray-400 dark:text-gray-500 text-xs">No new notifications</div>
                 ) : (
                   notifications.slice(0, 3).map((n, i) => (
-                    <div key={i} style={{ padding: "8px 0", borderBottom: "1px dashed #f3f4f6" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                        <strong style={{ fontSize: 13, color: "#111827" }}>{n.title}</strong>
+                    <div key={i} className="py-1.5 border-b border-dashed border-gray-200 dark:border-gray-700">
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        <strong className="text-xs text-gray-900 dark:text-gray-100">{n.title}</strong>
                         {n.priority === "critical" && (
-                          <span
-                            style={{
-                              padding: "2px 6px",
-                              borderRadius: 4,
-                              background: "#dc2626",
-                              color: "#fff",
-                              fontSize: 10,
-                              fontWeight: 600,
-                            }}
-                          >
+                          <span className="px-1 py-0.5 rounded bg-red-600 text-white text-xs font-semibold">
                             Critical
                           </span>
                         )}
                       </div>
-                      <div style={{ fontSize: 12, color: "#6b7280" }}>{n.description}</div>
+                      <div className="text-xs text-gray-600 dark:text-gray-400">{n.description}</div>
                     </div>
                   ))
                 )}
               </div>
               {notifications.length > 0 && (
-                <div style={{ marginTop: 10, textAlign: "right" }}>
-                  <span style={{ color: "#4f46e5", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                <div className="mt-2 text-right">
+                  <span className="text-indigo-600 dark:text-indigo-400 text-xs font-semibold cursor-pointer">
                     View All →
                   </span>
                 </div>
@@ -599,142 +407,13 @@ export default function AdminDashboard() {
             </div>
           </section>
 
-          {/* Users management section */}
-          <section
-            id="users-section"
-            style={{
-              backgroundColor: "#fff",
-              borderRadius: 16,
-              padding: 24,
-              boxShadow: "0 10px 25px rgba(0,0,0,0.06)",
-              marginBottom: 16,
-            }}
-          >
-            <div style={{ marginBottom: 16 }}>
-              <h3 style={{ margin: 0, color: "#4f46e5" }}>User Management</h3>
-              <p style={{ margin: 0, color: "#6b7280", fontSize: 13, marginTop: 6 }}>
-                Search, filter and paginate through users. Use controls above to refine results.
-              </p>
-            </div>
-
-            <div style={{ marginTop: 16 }}>
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                <thead>
-                  <tr style={{ textAlign: "left", borderBottom: "2px solid #e6e9ef" }}>
-                    <th style={{ padding: "12px 8px", color: "#6b7280", fontSize: 13, fontWeight: 600 }}>Name</th>
-                    <th style={{ padding: "12px 8px", color: "#6b7280", fontSize: 13, fontWeight: 600 }}>Email</th>
-                    <th style={{ padding: "12px 8px", color: "#6b7280", fontSize: 13, fontWeight: 600 }}>Status</th>
-                    <th style={{ padding: "12px 8px", color: "#6b7280", fontSize: 13, fontWeight: 600 }}>Registered</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.length === 0 ? (
-                    <tr>
-                      <td colSpan={4} style={{ padding: 24, color: "#9ca3af", textAlign: "center" }}>
-                        No users found.
-                      </td>
-                    </tr>
-                  ) : (
-                    users.map((u) => (
-                      <tr key={u.id || u._id} style={{ borderBottom: "1px solid #f3f4f6" }}>
-                        <td style={{ padding: "14px 8px", color: "#111827", fontWeight: 500 }}>{u.name}</td>
-                        <td style={{ padding: "14px 8px", color: "#6b7280" }}>{u.email}</td>
-                        <td style={{ padding: "14px 8px" }}>
-                          <span
-                            style={{
-                              padding: "4px 10px",
-                              borderRadius: 8,
-                              fontSize: 12,
-                              fontWeight: 600,
-                              background:
-                                (u.status || u.accountStatus) === "active"
-                                  ? "rgba(16,185,129,0.08)"
-                                  : (u.status || u.accountStatus) === "pending"
-                                  ? "rgba(245,158,11,0.08)"
-                                  : "rgba(148,163,184,0.06)",
-                              color:
-                                (u.status || u.accountStatus) === "active"
-                                  ? "#065f46"
-                                  : (u.status || u.accountStatus) === "pending"
-                                  ? "#92400e"
-                                  : "#374151",
-                            }}
-                          >
-                            {u.status || u.accountStatus || "—"}
-                          </span>
-                        </td>
-                        <td style={{ padding: "14px 8px", color: "#6b7280", fontSize: 13 }}>
-                          {new Date(u.createdAt || u.registeredAt || Date.now()).toLocaleDateString()}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-
-              {/* Pagination controls */}
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginTop: 20,
-                  paddingTop: 16,
-                  borderTop: "1px solid #f3f4f6",
-                }}
-              >
-                <div style={{ color: "#6b7280", fontSize: 14 }}>
-                  Page {usersPage} of {usersTotalPages}
-                </div>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button
-                    onClick={() => handleUsersPage(usersPage - 1)}
-                    disabled={usersPage <= 1}
-                    style={{
-                      padding: "8px 16px",
-                      borderRadius: 10,
-                      border: "1px solid #e6e9ef",
-                      background: usersPage <= 1 ? "#f9fafb" : "#fff",
-                      cursor: usersPage <= 1 ? "not-allowed" : "pointer",
-                      color: usersPage <= 1 ? "#9ca3af" : "#111827",
-                      fontWeight: 600,
-                    }}
-                  >
-                    Prev
-                  </button>
-                  <button
-                    onClick={() => handleUsersPage(usersPage + 1)}
-                    disabled={usersPage >= usersTotalPages}
-                    style={{
-                      padding: "8px 16px",
-                      borderRadius: 10,
-                      border: "1px solid #e6e9ef",
-                      background: usersPage >= usersTotalPages ? "#f9fafb" : "#fff",
-                      cursor: usersPage >= usersTotalPages ? "not-allowed" : "pointer",
-                      color: usersPage >= usersTotalPages ? "#9ca3af" : "#111827",
-                      fontWeight: 600,
-                    }}
-                  >
-                    Next
-                  </button>
-                </div>
-              </div>
-            </div>
-          </section>
-
           {/* Reports & Analytics */}
           <section
             id="reports-section"
-            style={{
-              backgroundColor: "#fff",
-              borderRadius: 16,
-              padding: 24,
-              boxShadow: "0 10px 25px rgba(0,0,0,0.06)",
-              textAlign: "center",
-            }}
+            className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm text-center"
           >
-            <h3 style={{ margin: 0, color: "#4f46e5" }}>Reports & Analytics</h3>
-            <p style={{ color: "#6b7280", marginTop: 8 }}>
+            <h3 className="m-0 text-indigo-600 dark:text-indigo-400">Reports & Analytics</h3>
+            <p className="text-gray-600 dark:text-gray-400 mt-2">
               📈 Chart visualizations and deeper analytics are available here.
             </p>
           </section>

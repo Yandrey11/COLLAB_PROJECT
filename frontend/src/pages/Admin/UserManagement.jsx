@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import Swal from "sweetalert2";
 import AdminSidebar from "../../components/AdminSidebar";
+import { initializeTheme } from "../../utils/themeUtils";
 
 export default function UserManagement() {
   const navigate = useNavigate();
@@ -294,247 +295,135 @@ export default function UserManagement() {
   };
 
   return (
-    <div
-      style={{
-        width: "100vw",
-        minHeight: "100vh",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        background: "linear-gradient(135deg, #eef2ff, #c7d2fe)",
-        fontFamily: "'Montserrat', sans-serif",
-        padding: "40px 16px",
-        gap: 20,
-      }}
-    >
-      <div
-        style={{
-          maxWidth: 1400,
-          width: "100%",
-          display: "grid",
-          gridTemplateColumns: "360px 1fr",
-          gap: 24,
-        }}
-      >
+    <div className="min-h-screen w-full flex flex-col items-center bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 font-sans p-4 md:p-8 gap-6">
+      <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-6">
         <AdminSidebar />
 
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: 20,
-          }}
-        >
+        <div className="flex flex-col gap-5">
           {/* Header */}
-          <div
-          style={{
-            background: "#fff",
-            borderRadius: 16,
-            padding: 24,
-            boxShadow: "0 10px 25px rgba(0,0,0,0.06)",
-          }}
-        >
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-              <button
-                onClick={() => navigate("/AdminDashboard")}
-                style={{
-                  padding: "8px 12px",
-                  borderRadius: 10,
-                  border: "1px solid #e6e9ef",
-                  background: "#fff",
-                  color: "#6b7280",
-                  cursor: "pointer",
-                  fontWeight: 600,
-                  fontSize: 14,
-                }}
-              >
-                ← Back
-              </button>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm">
+            <div className="flex justify-between items-center">
               <div>
-                <h1 style={{ color: "#111827", margin: 0 }}>User Management</h1>
-                <p style={{ color: "#6b7280", marginTop: 6 }}>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 m-0">User Management</h1>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1.5">
                   Manage system users, control access, and ensure proper role assignment.
                 </p>
               </div>
+              <button
+                onClick={() => {
+                  setShowAddModal(true);
+                  setAddForm({ name: "", email: "", role: "counselor" });
+                  setFormErrors({});
+                }}
+                className="px-5 py-2.5 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white font-semibold text-sm cursor-pointer transition-all shadow-md hover:shadow-lg"
+              >
+                + Add New User
+              </button>
             </div>
-            <button
-              onClick={() => {
-                setShowAddModal(true);
-                setAddForm({ name: "", email: "", role: "counselor" });
-                setFormErrors({});
-              }}
-              style={{
-                padding: "10px 20px",
-                borderRadius: 10,
-                border: "none",
-                background: "linear-gradient(90deg,#06b6d4,#3b82f6)",
-                color: "#fff",
-                cursor: "pointer",
-                fontWeight: 600,
-              }}
-            >
-              + Add New User
-            </button>
           </div>
-        </div>
 
         {/* Message Alert */}
         {message.text && (
           <div
-            style={{
-              background: message.type === "success" ? "#d1fae5" : "#fee2e2",
-              color: message.type === "success" ? "#065f46" : "#991b1b",
-              padding: "12px 20px",
-              borderRadius: 10,
-              fontWeight: 500,
-            }}
+            className={`px-5 py-3 rounded-lg font-medium text-sm ${
+              message.type === "success"
+                ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300"
+                : "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300"
+            }`}
           >
             {message.text}
           </div>
         )}
 
-        {/* Search and Filter */}
-        <div
-          style={{
-            background: "#fff",
-            borderRadius: 16,
-            padding: 20,
-            boxShadow: "0 10px 25px rgba(0,0,0,0.06)",
-          }}
-        >
-          <form onSubmit={handleSearch} style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-            <input
-              type="text"
-              placeholder="Search by name or email..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              style={{
-                flex: 1,
-                minWidth: 200,
-                padding: "10px 15px",
-                borderRadius: 10,
-                border: "1px solid #e6e9ef",
-                outline: "none",
-                fontSize: 14,
-              }}
-            />
-            <select
-              value={roleFilter}
-              onChange={(e) => {
-                const newRole = e.target.value;
-                setRoleFilter(newRole);
-                const token = localStorage.getItem("adminToken");
-                fetchUsers(token, 1, searchQuery, newRole, statusFilter);
-              }}
-              style={{
-                padding: "10px 15px",
-                borderRadius: 10,
-                border: "1px solid #e6e9ef",
-                background: "#4f46e5",
-                cursor: "pointer",
-                fontSize: 14,
-              }}
-            >
-              <option value="all">All Roles</option>
-              <option value="admin">Admin</option>
-              <option value="counselor">Counselor</option>
-            </select>
-            <select
-              value={statusFilter}
-              onChange={(e) => {
-                const newStatus = e.target.value;
-                setStatusFilter(newStatus);
-                const token = localStorage.getItem("adminToken");
-                fetchUsers(token, 1, searchQuery, roleFilter, newStatus);
-              }}
-              style={{
-                padding: "10px 15px",
-                borderRadius: 10,
-                border: "1px solid #e6e9ef",
-                background: "#4f46e5",
-                cursor: "pointer",
-                fontSize: 14,
-              }}
-            >
-              <option value="all">All Status</option>
-              <option value="active">Active (Online)</option>
-              <option value="offline">Offline</option>
-            </select>
-            <button
-              type="submit"
-              style={{
-                padding: "10px 20px",
-                borderRadius: 10,
-                border: "none",
-                background: "linear-gradient(90deg,#06b6d4,#3b82f6)",
-                color: "#fff",
-                cursor: "pointer",
-                fontWeight: 600,
-              }}
-            >
-              Search
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                const token = localStorage.getItem("adminToken");
-                setSearchQuery("");
-                setRoleFilter("counselor"); // Reset to counselor role
-                setStatusFilter("all");
-                fetchUsers(token, 1, "", "counselor", "all");
-              }}
-              style={{
-                padding: "10px 20px",
-                borderRadius: 10,
-                border: "1px solid #e6e9ef",
-                background: "#fff",
-                color: "#6b7280",
-                cursor: "pointer",
-                fontWeight: 600,
-              }}
-            >
-              Reset
-            </button>
-          </form>
-        </div>
+          {/* Search and Filter */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm">
+            <form onSubmit={handleSearch} className="flex gap-3 items-center flex-wrap">
+              <input
+                type="text"
+                placeholder="Search by name or email..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="flex-1 min-w-[200px] px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 placeholder-gray-400 dark:placeholder-gray-500"
+              />
+              <select
+                value={roleFilter}
+                onChange={(e) => {
+                  const newRole = e.target.value;
+                  setRoleFilter(newRole);
+                  const token = localStorage.getItem("adminToken");
+                  fetchUsers(token, 1, searchQuery, newRole, statusFilter);
+                }}
+                className="px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-indigo-600 dark:bg-indigo-600 text-white text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="all">All Roles</option>
+                <option value="admin">Admin</option>
+                <option value="counselor">Counselor</option>
+              </select>
+              <select
+                value={statusFilter}
+                onChange={(e) => {
+                  const newStatus = e.target.value;
+                  setStatusFilter(newStatus);
+                  const token = localStorage.getItem("adminToken");
+                  fetchUsers(token, 1, searchQuery, roleFilter, newStatus);
+                }}
+                className="px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-indigo-600 dark:bg-indigo-600 text-white text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="all">All Status</option>
+                <option value="active">Active (Online)</option>
+                <option value="offline">Offline</option>
+              </select>
+              <button
+                type="submit"
+                className="px-5 py-2.5 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white font-semibold text-sm cursor-pointer transition-all shadow-md hover:shadow-lg"
+              >
+                Search
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const token = localStorage.getItem("adminToken");
+                  setSearchQuery("");
+                  setRoleFilter("counselor");
+                  setStatusFilter("all");
+                  fetchUsers(token, 1, "", "counselor", "all");
+                }}
+                className="px-5 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 cursor-pointer font-semibold text-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+              >
+                Reset
+              </button>
+            </form>
+          </div>
 
-        {/* Users Table */}
-        <div
-          style={{
-            background: "#fff",
-            borderRadius: 16,
-            padding: 24,
-            boxShadow: "0 10px 25px rgba(0,0,0,0.06)",
-          }}
-        >
-          <h2 style={{ color: "#4f46e5", marginTop: 0 }}>All Users</h2>
+          {/* Users Table */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm">
+            <h2 className="text-xl font-bold text-indigo-600 dark:text-indigo-400 mb-4">All Users</h2>
           {users.length === 0 ? (
-            <div style={{ padding: 40, textAlign: "center", color: "#9ca3af" }}>
+            <div className="py-10 text-center text-gray-400 dark:text-gray-500">
               No users found.
             </div>
           ) : (
             <>
-              <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse">
                   <thead>
-                    <tr style={{ textAlign: "left", borderBottom: "2px solid #e6e9ef" }}>
-                      <th style={{ padding: "12px 8px", color: "#6b7280", fontSize: 13, fontWeight: 600 }}>
+                    <tr className="text-left border-b-2 border-gray-200 dark:border-gray-700">
+                      <th className="px-3 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 text-left">
                         Full Name
                       </th>
-                      <th style={{ padding: "12px 8px", color: "#6b7280", fontSize: 13, fontWeight: 600 }}>
+                      <th className="px-3 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 text-left">
                         Email
                       </th>
-                      <th style={{ padding: "12px 8px", color: "#6b7280", fontSize: 13, fontWeight: 600 }}>
+                      <th className="px-3 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 text-left">
                         Role
                       </th>
-                      <th style={{ padding: "12px 8px", color: "#6b7280", fontSize: 13, fontWeight: 600 }}>
+                      <th className="px-3 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 text-left">
                         Online Status
                       </th>
-                      <th style={{ padding: "12px 8px", color: "#6b7280", fontSize: 13, fontWeight: 600 }}>
+                      <th className="px-3 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 text-left">
                         Date Created
                       </th>
-                      <th style={{ padding: "12px 8px", color: "#6b7280", fontSize: 13, fontWeight: 600 }}>
+                      <th className="px-3 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 text-left">
                         Actions
                       </th>
                     </tr>
@@ -543,37 +432,29 @@ export default function UserManagement() {
                     {users.map((user) => {
                       const roleColors = getRoleBadgeColor(user.role);
                       return (
-                        <tr key={user.id} style={{ borderBottom: "1px solid #f3f4f6" }}>
-                          <td style={{ padding: "14px 8px", color: "#111827", fontWeight: 500 }}>
+                        <tr key={user.id} className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                          <td className="px-3 py-3.5 text-sm font-medium text-gray-900 dark:text-gray-100">
                             {user.name}
                           </td>
-                          <td style={{ padding: "14px 8px", color: "#6b7280" }}>{user.email}</td>
-                          <td style={{ padding: "14px 8px" }}>
+                          <td className="px-3 py-3.5 text-sm text-gray-600 dark:text-gray-400">{user.email}</td>
+                          <td className="px-3 py-3.5">
                             <span
-                              style={{
-                                padding: "4px 10px",
-                                borderRadius: 8,
-                                fontSize: 12,
-                                fontWeight: 600,
-                                background: roleColors.bg,
-                                color: roleColors.color,
-                                textTransform: "capitalize",
-                              }}
+                              className={`px-2.5 py-1 rounded-lg text-xs font-semibold capitalize ${
+                                user.role === "admin"
+                                  ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
+                                  : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+                              }`}
                             >
                               {user.role === "admin" ? "Admin" : "Counselor"}
                             </span>
                           </td>
-                          <td style={{ padding: "14px 8px" }}>
+                          <td className="px-3 py-3.5">
                             <span
-                              style={{
-                                padding: "4px 10px",
-                                borderRadius: 8,
-                                fontSize: 12,
-                                fontWeight: 600,
-                                background: user.isOnline ? "rgba(16,185,129,0.1)" : "rgba(107,114,128,0.1)",
-                                color: user.isOnline ? "#10b981" : "#6b7280",
-                                textTransform: "capitalize",
-                              }}
+                              className={`px-2.5 py-1 rounded-lg text-xs font-semibold capitalize ${
+                                user.isOnline
+                                  ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                                  : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
+                              }`}
                             >
                               {user.isOnline ? "Active" : "Offline"}
                             </span>
@@ -585,46 +466,19 @@ export default function UserManagement() {
                             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                               <button
                                 onClick={() => openEditModal(user)}
-                                style={{
-                                  padding: "6px 12px",
-                                  borderRadius: 8,
-                                  border: "1px solid #e6e9ef",
-                                  background: "#fff",
-                                  color: "#4f46e5",
-                                  cursor: "pointer",
-                                  fontWeight: 600,
-                                  fontSize: 12,
-                                }}
+                                className="px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 cursor-pointer font-semibold text-xs hover:bg-gray-50 dark:hover:bg-gray-600"
                               >
                                 Edit
                               </button>
                               <button
                                 onClick={() => handleSendResetLink(user)}
-                                style={{
-                                  padding: "6px 12px",
-                                  borderRadius: 8,
-                                  border: "1px solid #e6e9ef",
-                                  background: "#fff",
-                                  color: "#3b82f6",
-                                  cursor: "pointer",
-                                  fontWeight: 600,
-                                  fontSize: 12,
-                                }}
+                                className="px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 cursor-pointer font-semibold text-xs hover:bg-gray-50 dark:hover:bg-gray-600"
                               >
                                 Send Reset Link
                               </button>
                               <button
                                 onClick={() => handleDeleteUser(user.id, user.email)}
-                                style={{
-                                  padding: "6px 12px",
-                                  borderRadius: 8,
-                                  border: "none",
-                                  background: "#ef4444",
-                                  color: "#fff",
-                                  cursor: "pointer",
-                                  fontWeight: 600,
-                                  fontSize: 12,
-                                }}
+                                className="px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 text-white font-semibold text-xs cursor-pointer transition-colors"
                               >
                                 Delete
                               </button>
@@ -663,9 +517,7 @@ export default function UserManagement() {
                     style={{
                       padding: "8px 16px",
                       borderRadius: 10,
-                      border: "1px solid #e6e9ef",
-                      background: currentPage <= 1 ? "#f9fafb" : "#fff",
-                      cursor: currentPage <= 1 ? "not-allowed" : "pointer",
+                      className: `border border-gray-200 dark:border-gray-700 ${currentPage <= 1 ? "bg-gray-100 dark:bg-gray-700 cursor-not-allowed" : "bg-white dark:bg-gray-700 cursor-pointer"}`,
                       color: currentPage <= 1 ? "#9ca3af" : "#111827",
                       fontWeight: 600,
                     }}
@@ -683,9 +535,7 @@ export default function UserManagement() {
                     style={{
                       padding: "8px 16px",
                       borderRadius: 10,
-                      border: "1px solid #e6e9ef",
-                      background: currentPage >= totalPages ? "#f9fafb" : "#fff",
-                      cursor: currentPage >= totalPages ? "not-allowed" : "pointer",
+                      className: `border border-gray-200 dark:border-gray-700 ${currentPage >= totalPages ? "bg-gray-100 dark:bg-gray-700 cursor-not-allowed" : "bg-white dark:bg-gray-700 cursor-pointer"}`,
                       color: currentPage >= totalPages ? "#9ca3af" : "#111827",
                       fontWeight: 600,
                     }}
@@ -723,11 +573,8 @@ export default function UserManagement() {
           }}
         >
           <div
+            className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md"
             style={{
-              background: "#fff",
-              borderRadius: 16,
-              padding: 24,
-              maxWidth: 500,
               width: "90%",
               maxHeight: "90vh",
               overflowY: "auto",
@@ -821,12 +668,7 @@ export default function UserManagement() {
                   }}
                   style={{
                     padding: "10px 20px",
-                    borderRadius: 10,
-                    border: "1px solid #e6e9ef",
-                    background: "#fff",
-                    color: "#6b7280",
-                    cursor: "pointer",
-                    fontWeight: 600,
+                    className: "rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 cursor-pointer font-semibold hover:bg-gray-50 dark:hover:bg-gray-600",
                   }}
                 >
                   Cancel
@@ -858,11 +700,8 @@ export default function UserManagement() {
           }}
         >
           <div
+            className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md"
             style={{
-              background: "#fff",
-              borderRadius: 16,
-              padding: 24,
-              maxWidth: 500,
               width: "90%",
               maxHeight: "90vh",
               overflowY: "auto",
@@ -953,12 +792,7 @@ export default function UserManagement() {
                   }}
                   style={{
                     padding: "10px 20px",
-                    borderRadius: 10,
-                    border: "1px solid #e6e9ef",
-                    background: "#fff",
-                    color: "#6b7280",
-                    cursor: "pointer",
-                    fontWeight: 600,
+                    className: "rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 cursor-pointer font-semibold hover:bg-gray-50 dark:hover:bg-gray-600",
                   }}
                 >
                   Cancel

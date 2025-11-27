@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import Swal from "sweetalert2";
 import AdminSidebar from "../../components/AdminSidebar";
+import { initializeTheme } from "../../utils/themeUtils";
 
 export default function NotificationCenter() {
   const navigate = useNavigate();
@@ -299,169 +300,69 @@ export default function NotificationCenter() {
   };
 
   return (
-    <div
-      style={{
-        width: "100vw",
-        minHeight: "100vh",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        background: "linear-gradient(135deg, #eef2ff, #c7d2fe)",
-        fontFamily: "'Montserrat', sans-serif",
-        padding: "40px 16px",
-        gap: 20,
-      }}
-    >
-      <div
-        style={{
-          maxWidth: 1400,
-          width: "100%",
-          display: "grid",
-          gridTemplateColumns: "360px 1fr",
-          gap: 24,
-        }}
-      >
+    <div className="min-h-screen w-full flex flex-col items-center bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 font-sans p-4 md:p-8 gap-6">
+      <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-6">
         <AdminSidebar />
 
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: 20,
-          }}
-        >
+        <div className="flex flex-col gap-5">
           {/* Header */}
-          <div
-          style={{
-            background: "#fff",
-            borderRadius: 16,
-            padding: 24,
-            boxShadow: "0 10px 25px rgba(0,0,0,0.06)",
-          }}
-        >
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-              <button
-                onClick={() => navigate("/AdminDashboard")}
-                style={{
-                  padding: "8px 12px",
-                  borderRadius: 10,
-                  border: "1px solid #e6e9ef",
-                  background: "#fff",
-                  color: "#6b7280",
-                  cursor: "pointer",
-                  fontWeight: 600,
-                  fontSize: 14,
-                }}
-              >
-                ← Back
-              </button>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm">
+            <div className="flex justify-between items-center">
               <div>
-                <h1 style={{ color: "#111827", margin: 0 }}>Notification Center</h1>
-                <p style={{ color: "#6b7280", marginTop: 6 }}>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 m-0">Notification Center</h1>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1.5">
                   Manage and monitor system notifications and alerts.
                 </p>
               </div>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              {unreadCount > 0 && (
-                <div
-                  style={{
-                    padding: "8px 16px",
-                    borderRadius: 10,
-                    background: "#ef4444",
-                    color: "#fff",
-                    fontWeight: 600,
-                    fontSize: 14,
-                  }}
+              <div className="flex items-center gap-3">
+                {unreadCount > 0 && (
+                  <div className="px-4 py-2 rounded-lg bg-red-500 text-white font-semibold text-sm">
+                    {unreadCount} Unread
+                  </div>
+                )}
+                <button
+                  onClick={handleMarkAllAsRead}
+                  className="px-5 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 cursor-pointer font-semibold text-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
                 >
-                  {unreadCount} Unread
-                </div>
-              )}
-              <button
-                onClick={handleMarkAllAsRead}
-                style={{
-                  padding: "10px 20px",
-                  borderRadius: 10,
-                  border: "1px solid #e6e9ef",
-                  background: "#fff",
-                  color: "#4f46e5",
-                  cursor: "pointer",
-                  fontWeight: 600,
-                }}
-              >
-                Mark All Read
-              </button>
-              <button
-                onClick={handleDeleteAllRead}
-                style={{
-                  padding: "10px 20px",
-                  borderRadius: 10,
-                  border: "1px solid #e6e9ef",
-                  background: "#fff",
-                  color: "#ef4444",
-                  cursor: "pointer",
-                  fontWeight: 600,
-                }}
-              >
-                Delete Read
-              </button>
+                  Mark All Read
+                </button>
+                <button
+                  onClick={handleDeleteAllRead}
+                  className="px-5 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 text-red-600 dark:text-red-400 cursor-pointer font-semibold text-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                >
+                  Delete Read
+                </button>
+              </div>
             </div>
           </div>
-        </div>
 
         {/* Message Alert */}
         {message.text && (
           <div
-            style={{
-              background: message.type === "success" ? "#d1fae5" : "#fee2e2",
-              color: message.type === "success" ? "#065f46" : "#991b1b",
-              padding: "12px 20px",
-              borderRadius: 10,
-              fontWeight: 500,
-            }}
+            className={`px-5 py-3 rounded-lg font-medium text-sm ${
+              message.type === "success"
+                ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300"
+                : "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300"
+            }`}
           >
             {message.text}
           </div>
         )}
 
         {/* Filters */}
-        <div
-          style={{
-            background: "#fff",
-            borderRadius: 16,
-            padding: 20,
-            boxShadow: "0 10px 25px rgba(0,0,0,0.06)",
-          }}
-        >
-          <form onSubmit={handleSearch} style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+        <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm">
+          <form onSubmit={handleSearch} className="flex gap-3 items-stretch flex-wrap w-full">
             <input
               type="text"
               placeholder="Search notifications..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              style={{
-                flex: 1,
-                minWidth: 200,
-                padding: "10px 15px",
-                borderRadius: 10,
-                border: "1px solid #e6e9ef",
-                outline: "none",
-                fontSize: 14,
-              }}
+              className="flex-1 min-w-[200px] px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 placeholder-gray-400 dark:placeholder-gray-500"
             />
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              style={{
-                padding: "10px 15px",
-                borderRadius: 10,
-                border: "1px solid #e6e9ef",
-                background: "#4f46e5",
-                color: "#fff",
-                cursor: "pointer",
-                fontSize: 14,
-              }}
+              className="px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-indigo-600 dark:bg-indigo-600 text-white text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
               <option value="all">All Status</option>
               <option value="unread">Unread</option>
@@ -470,15 +371,7 @@ export default function NotificationCenter() {
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
-              style={{
-                padding: "10px 15px",
-                borderRadius: 10,
-                border: "1px solid #e6e9ef",
-                background: "#4f46e5",
-                color: "#fff",
-                cursor: "pointer",
-                fontSize: 14,
-              }}
+              className="px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-indigo-600 dark:bg-indigo-600 text-white text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
               <option value="all">All Categories</option>
               <option value="System Alert">System Alert</option>
@@ -487,54 +380,33 @@ export default function NotificationCenter() {
               <option value="Security Alert">Security Alert</option>
               <option value="Info">Info</option>
             </select>
-            <button
-              type="submit"
-              style={{
-                padding: "10px 20px",
-                borderRadius: 10,
-                border: "none",
-                background: "linear-gradient(90deg,#06b6d4,#3b82f6)",
-                color: "#fff",
-                cursor: "pointer",
-                fontWeight: 600,
-              }}
-            >
-              Search
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setStatusFilter("all");
-                setCategoryFilter("all");
-                setSearchQuery("");
-                const token = localStorage.getItem("adminToken");
-                fetchNotifications(token, 1, "all", "all", "");
-              }}
-              style={{
-                padding: "10px 20px",
-                borderRadius: 10,
-                border: "1px solid #e6e9ef",
-                background: "#fff",
-                color: "#6b7280",
-                cursor: "pointer",
-                fontWeight: 600,
-              }}
-            >
-              Reset
-            </button>
+            <div className="flex gap-2 flex-wrap">
+              <button
+                type="submit"
+                className="px-5 py-2.5 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white font-semibold text-sm cursor-pointer transition-all shadow-md hover:shadow-lg"
+              >
+                Search
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setStatusFilter("all");
+                  setCategoryFilter("all");
+                  setSearchQuery("");
+                  const token = localStorage.getItem("adminToken");
+                  fetchNotifications(token, 1, "all", "all", "");
+                }}
+                className="px-5 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 cursor-pointer font-semibold text-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+              >
+                Reset
+              </button>
+            </div>
           </form>
         </div>
 
         {/* Notifications List */}
-        <div
-          style={{
-            background: "#fff",
-            borderRadius: 16,
-            padding: 24,
-            boxShadow: "0 10px 25px rgba(0,0,0,0.06)",
-          }}
-        >
-          <h2 style={{ color: "#4f46e5", marginTop: 0 }}>Notifications</h2>
+        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm">
+          <h2 className="text-indigo-600 dark:text-indigo-400 mt-0 font-bold">Notifications</h2>
           {notifications.length === 0 ? (
             <div style={{ padding: 40, textAlign: "center", color: "#9ca3af" }}>
               No notifications found.
@@ -554,8 +426,9 @@ export default function NotificationCenter() {
                       style={{
                         padding: 12,
                         borderRadius: 8,
-                        border: isUnread ? "2px solid #4f46e5" : "1px solid #e6e9ef",
-                        background: isUnread ? "#f8faff" : "#fff",
+                        className: isUnread 
+                          ? "border-2 border-indigo-600 dark:border-indigo-400 bg-indigo-50 dark:bg-indigo-900/20" 
+                          : "border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700",
                         boxShadow: isCritical ? "0 2px 6px rgba(220,38,38,0.1)" : "0 1px 4px rgba(0,0,0,0.02)",
                       }}
                     >
@@ -623,48 +496,21 @@ export default function NotificationCenter() {
                               {isUnread ? (
                                 <button
                                   onClick={() => handleMarkAsRead(notification.id)}
-                                  style={{
-                                    padding: "4px 10px",
-                                    borderRadius: 6,
-                                    border: "1px solid #e6e9ef",
-                                    background: "#fff",
-                                    color: "#4f46e5",
-                                    cursor: "pointer",
-                                    fontWeight: 600,
-                                    fontSize: 10,
-                                  }}
+                                  className="px-2.5 py-1 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 cursor-pointer font-semibold text-xs hover:bg-gray-50 dark:hover:bg-gray-600"
                                 >
                                   Mark Read
                                 </button>
                               ) : (
                                 <button
                                   onClick={() => handleMarkAsUnread(notification.id)}
-                                  style={{
-                                    padding: "4px 10px",
-                                    borderRadius: 6,
-                                    border: "1px solid #e6e9ef",
-                                    background: "#fff",
-                                    color: "#6b7280",
-                                    cursor: "pointer",
-                                    fontWeight: 600,
-                                    fontSize: 10,
-                                  }}
+                                  className="px-2.5 py-1 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 cursor-pointer font-semibold text-xs hover:bg-gray-50 dark:hover:bg-gray-600"
                                 >
                                   Mark Unread
                                 </button>
                               )}
                               <button
                                 onClick={() => handleDelete(notification.id)}
-                                style={{
-                                  padding: "4px 10px",
-                                  borderRadius: 6,
-                                  border: "1px solid #e6e9ef",
-                                  background: "#fff",
-                                  color: "#ef4444",
-                                  cursor: "pointer",
-                                  fontWeight: 600,
-                                  fontSize: 10,
-                                }}
+                                className="px-2.5 py-1 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 text-red-600 dark:text-red-400 cursor-pointer font-semibold text-xs hover:bg-gray-50 dark:hover:bg-gray-600"
                               >
                                 Delete
                               </button>
@@ -700,15 +546,7 @@ export default function NotificationCenter() {
                       }
                     }}
                     disabled={currentPage <= 1}
-                    style={{
-                      padding: "8px 16px",
-                      borderRadius: 10,
-                      border: "1px solid #e6e9ef",
-                      background: currentPage <= 1 ? "#f9fafb" : "#fff",
-                      cursor: currentPage <= 1 ? "not-allowed" : "pointer",
-                      color: currentPage <= 1 ? "#9ca3af" : "#111827",
-                      fontWeight: 600,
-                    }}
+                    className={`px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 ${currentPage <= 1 ? "bg-gray-100 dark:bg-gray-700 cursor-not-allowed text-gray-400 dark:text-gray-500" : "bg-white dark:bg-gray-700 cursor-pointer text-gray-900 dark:text-gray-100"} font-semibold`}
                   >
                     Prev
                   </button>
@@ -720,15 +558,7 @@ export default function NotificationCenter() {
                       }
                     }}
                     disabled={currentPage >= totalPages}
-                    style={{
-                      padding: "8px 16px",
-                      borderRadius: 10,
-                      border: "1px solid #e6e9ef",
-                      background: currentPage >= totalPages ? "#f9fafb" : "#fff",
-                      cursor: currentPage >= totalPages ? "not-allowed" : "pointer",
-                      color: currentPage >= totalPages ? "#9ca3af" : "#111827",
-                      fontWeight: 600,
-                    }}
+                    className={`px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 ${currentPage >= totalPages ? "bg-gray-100 dark:bg-gray-700 cursor-not-allowed text-gray-400 dark:text-gray-500" : "bg-white dark:bg-gray-700 cursor-pointer text-gray-900 dark:text-gray-100"} font-semibold`}
                   >
                     Next
                   </button>

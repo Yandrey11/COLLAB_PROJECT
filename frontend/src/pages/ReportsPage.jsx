@@ -4,8 +4,25 @@ import axios from "axios";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 import { motion, AnimatePresence } from "framer-motion";
+import Swal from "sweetalert2";
+import { NotificationBadgeBadge } from "../components/NotificationBadge";
+import { initializeTheme } from "../utils/themeUtils";
 
-const API_URL = "http://localhost:5000/api/records";
+const API_URL = `${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api/records`;
+const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
+// Helper function to get full image URL from backend
+const getImageUrl = (imagePath) => {
+  if (!imagePath) return null;
+  if (imagePath.startsWith("http://") || imagePath.startsWith("https://")) {
+    return imagePath;
+  }
+  if (imagePath.startsWith("data:")) {
+    return imagePath;
+  }
+  const path = imagePath.startsWith("/") ? imagePath : `/${imagePath}`;
+  return `${BASE_URL}${path}`;
+};
 
 const ReportsPage = () => {
   const navigate = useNavigate();
@@ -17,6 +34,8 @@ const ReportsPage = () => {
   const [loading, setLoading] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [error, setError] = useState("");
+  const [user, setUser] = useState(null);
+  const [profile, setProfile] = useState(null);
 
   // ✅ Fetch records from backend
   const fetchRecords = async () => {
@@ -38,6 +57,50 @@ const ReportsPage = () => {
     }
     setLoading(false);
   };
+
+  // Initialize theme on mount
+  useEffect(() => {
+    initializeTheme();
+  }, []);
+
+  // Load user from localStorage
+  useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      try {
+        setUser(JSON.parse(storedUser));
+      } catch (err) {
+        console.error("Error parsing user data:", err);
+      }
+    }
+  }, []);
+
+  // Fetch profile data
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        if (!token || !user) return;
+
+        const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
+        const res = await axios.get(`${baseUrl}/api/profile`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (res.data.success) {
+          setProfile(res.data.profile);
+        }
+      } catch (error) {
+        console.error("Error fetching profile:", error);
+      }
+    };
+
+    if (user) {
+      fetchProfile();
+    }
+  }, [user]);
 
   useEffect(() => {
     fetchRecords();
@@ -309,93 +372,192 @@ const ReportsPage = () => {
     doc.save(fileName);
   };
 
+  const handleRefresh = () => {
+    fetchRecords();
+  };
+
+  const handleLogout = async () => {
+    const result = await Swal.fire({
+      title: "Logout?",
+      text: "Are you sure you want to log out?",
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonColor: "#4f46e5",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "Yes, log out",
+      cancelButtonText: "Cancel",
+    });
+
+    if (result.isConfirmed) {
+      const token = localStorage.getItem("authToken") || localStorage.getItem("token");
+      const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
+      try {
+        if (token) {
+          await fetch(`${baseUrl}/api/auth/logout`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          });
+        }
+      } catch (err) {
+        console.error("Error calling logout endpoint:", err);
+      }
+
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      await Swal.fire({
+        icon: "info",
+        title: "Logged Out",
+        text: "You have been logged out!",
+        timer: 2000,
+        showConfirmButton: false,
+      });
+      navigate("/", { replace: true });
+    }
+  };
+
   return (
-    <div
-      style={{
-        width: "100vw",
-        minHeight: "100vh",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        background: "linear-gradient(135deg, #eef2ff, #c7d2fe)",
-        fontFamily: "'Montserrat', sans-serif",
-        padding: "40px 16px",
-        gap: 20,
-        boxSizing: "border-box",
-      }}
-    >
-      <div
-        style={{
-          maxWidth: 1200,
-          width: "100%",
-          display: "flex",
-          flexDirection: "column",
-          gap: 20,
-        }}
-      >
+    <div className="min-h-screen w-full flex flex-col items-center bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 font-sans p-4 md:p-8 gap-6">
+      <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-6">
+        {/* Left: Overview / Navigation */}
+        <aside className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm h-fit lg:sticky lg:top-6">
+          {/* Profile Picture and Name */}
+          <div className="flex flex-col items-center gap-2 mb-6 pb-6 border-b border-gray-200 dark:border-gray-700">
+            {profile?.profilePicture ? (
+              <img
+                src={getImageUrl(profile.profilePicture)}
+                alt="Profile"
+                className="w-16 h-16 rounded-full object-cover border-2 border-indigo-200"
+                onError={(e) => {
+                  e.target.style.display = "none";
+                }}
+              />
+            ) : (
+              <div className="w-16 h-16 rounded-full bg-indigo-100 border-2 border-indigo-200 flex items-center justify-center">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="w-8 h-8 text-indigo-600"
+                >
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+              </div>
+            )}
+            <div className="text-center">
+              <div className="font-bold text-gray-900 dark:text-gray-100 text-base">{user?.name || profile?.name || "Counselor"}</div>
+            </div>
+          </div>
+
+          <h2 className="text-xl font-bold text-indigo-600 dark:text-indigo-400 m-0">Guidance Dashboard</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+            The Dashboard provides counselors with an at-a-glance view of personal schedules, sessions,
+            meetings, and planned activities for the current day or week.
+          </p>
+
+          <div className="flex flex-col gap-3 mt-6">
+            <button
+              onClick={() => navigate("/dashboard")}
+              className="p-3 rounded-xl border border-indigo-50 dark:border-gray-700 bg-gradient-to-r from-white to-slate-50 dark:from-gray-800 dark:to-gray-700 hover:to-white dark:hover:to-gray-700 text-gray-900 dark:text-gray-100 font-semibold text-left transition-all"
+            >
+              Dashboard
+            </button>
+            <button
+              onClick={() => navigate("/records")}
+              className="p-3 rounded-xl border border-indigo-50 dark:border-gray-700 bg-gradient-to-r from-white to-slate-50 dark:from-gray-800 dark:to-gray-700 hover:to-white dark:hover:to-gray-700 text-gray-900 dark:text-gray-100 font-semibold text-left transition-all"
+            >
+              Records Page
+            </button>
+            <button
+              onClick={() => navigate("/reports")}
+              className="p-3 rounded-xl border border-indigo-50 dark:border-gray-700 bg-gradient-to-r from-indigo-50 to-white dark:from-indigo-900/30 dark:to-gray-800 hover:from-white hover:to-indigo-50 dark:hover:from-gray-800 dark:hover:to-indigo-900/30 text-white font-semibold text-left transition-all"
+              style={{ background: "linear-gradient(90deg, #4f46e5, #7c3aed)", color: "#fff" }}
+            >
+              Reports Page
+            </button>
+            <button
+              onClick={() => navigate("/notifications")}
+              className="p-3 rounded-xl border border-indigo-50 dark:border-gray-700 bg-gradient-to-r from-white to-slate-50 dark:from-gray-800 dark:to-gray-700 hover:from-indigo-50 hover:to-white dark:hover:from-gray-700 dark:hover:to-gray-800 hover:shadow-sm text-gray-900 dark:text-gray-100 font-semibold text-left transition-all relative"
+            >
+              <span>Notification Center</span>
+              <span className="absolute top-1 right-1">
+                <NotificationBadgeBadge />
+              </span>
+            </button>
+                <button
+                  onClick={() => navigate("/profile")}
+                  className="p-3 rounded-xl border border-indigo-50 dark:border-gray-700 bg-gradient-to-r from-white to-slate-50 dark:from-gray-800 dark:to-gray-700 hover:to-white dark:hover:to-gray-700 text-gray-900 dark:text-gray-100 font-semibold text-left transition-all"
+                >
+                  User Profile & Settings
+                </button>
+
+                <div className="flex gap-2 mt-4">
+              <button
+                onClick={handleRefresh}
+                className="flex-1 p-2.5 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition-colors"
+              >
+                Refresh Data
+              </button>
+              <button
+                onClick={handleLogout}
+                className="p-2.5 rounded-xl bg-red-500 text-white font-semibold hover:bg-red-600 transition-colors"
+              >
+                Logout
+              </button>
+            </div>
+
+            <div className="mt-4 text-xs text-gray-500 dark:text-gray-400">
+              Data Synchronization:
+              <div className="mt-1">
+                The dashboard listens for changes to stored user data and will update automatically across
+                browser contexts. For backend-driven real-time updates, server-side events or websockets
+                would be used (not modified here).
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        {/* Right: Main content */}
+        <main className="w-full">
+          <div
+            style={{
+              width: "100%",
+              display: "flex",
+              flexDirection: "column",
+              gap: 20,
+            }}
+          >
         {/* Header Card */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          style={{
-            background: "#fff",
-            borderRadius: 16,
-            padding: 24,
-            boxShadow: "0 10px 25px rgba(0,0,0,0.06)",
-          }}
+          className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm"
         >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "flex-start",
-              flexWrap: "wrap",
-              gap: 16,
-            }}
-          >
-            <div style={{ flex: 1, minWidth: 200 }}>
-              <h1 style={{ color: "#111827", margin: 0, fontSize: "clamp(1.5rem, 4vw, 2rem)" }}>
+            <div>
+              <h1 className="text-gray-900 dark:text-gray-100" style={{ margin: 0, fontSize: "clamp(1.5rem, 4vw, 2rem)" }}>
                 Counseling Reports
               </h1>
-              <p style={{ color: "#6b7280", marginTop: 6, fontSize: 14 }}>
+              <p className="text-gray-500 dark:text-gray-400" style={{ marginTop: 6, fontSize: 14 }}>
                 Generate and review comprehensive progress reports for counseling sessions.
               </p>
             </div>
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => navigate("/dashboard")}
-              style={{
-                padding: "10px 16px",
-                borderRadius: 10,
-                border: "1px solid #e6e9ef",
-                background: "#fff",
-                cursor: "pointer",
-                color: "#111827",
-                fontWeight: 600,
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                whiteSpace: "nowrap",
-              }}
-            >
-              <span>←</span>
-              <span>Back to Dashboard</span>
-            </motion.button>
-          </div>
         </motion.div>
         {/* Filter Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          style={{
-            background: "#fff",
-            borderRadius: 16,
-            padding: 24,
-            boxShadow: "0 10px 25px rgba(0,0,0,0.06)",
-          }}
+          className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm"
         >
           <div
             style={{
@@ -410,76 +572,19 @@ const ReportsPage = () => {
               placeholder="🔍 Search by client name"
               value={clientName}
               onChange={(e) => setClientName(e.target.value)}
-              style={{
-                width: "100%",
-                border: "1px solid #e6e9ef",
-                background: "#fff",
-                padding: "10px 12px",
-                borderRadius: 10,
-                color: "#111827",
-                fontSize: 14,
-                transition: "all 0.2s",
-                boxSizing: "border-box",
-              }}
-              onFocus={(e) => {
-                e.currentTarget.style.outline = "2px solid #4f46e5";
-                e.currentTarget.style.outlineOffset = "2px";
-                e.currentTarget.style.borderColor = "#4f46e5";
-              }}
-              onBlur={(e) => {
-                e.currentTarget.style.outline = "none";
-                e.currentTarget.style.borderColor = "#e6e9ef";
-              }}
+              className="w-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-indigo-500 dark:focus:border-indigo-400 transition-all placeholder-gray-400 dark:placeholder-gray-500"
             />
             <input
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              style={{
-                width: "100%",
-                border: "1px solid #e6e9ef",
-                background: "#fff",
-                padding: "10px 12px",
-                borderRadius: 10,
-                color: "#111827",
-                fontSize: 14,
-                transition: "all 0.2s",
-                boxSizing: "border-box",
-              }}
-              onFocus={(e) => {
-                e.currentTarget.style.outline = "2px solid #4f46e5";
-                e.currentTarget.style.outlineOffset = "2px";
-                e.currentTarget.style.borderColor = "#4f46e5";
-              }}
-              onBlur={(e) => {
-                e.currentTarget.style.outline = "none";
-                e.currentTarget.style.borderColor = "#e6e9ef";
-              }}
+              className="w-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-indigo-500 dark:focus:border-indigo-400 transition-all"
             />
             <input
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              style={{
-                width: "100%",
-                border: "1px solid #e6e9ef",
-                background: "#fff",
-                padding: "10px 12px",
-                borderRadius: 10,
-                color: "#111827",
-                fontSize: 14,
-                transition: "all 0.2s",
-                boxSizing: "border-box",
-              }}
-              onFocus={(e) => {
-                e.currentTarget.style.outline = "2px solid #4f46e5";
-                e.currentTarget.style.outlineOffset = "2px";
-                e.currentTarget.style.borderColor = "#4f46e5";
-              }}
-              onBlur={(e) => {
-                e.currentTarget.style.outline = "none";
-                e.currentTarget.style.borderColor = "#e6e9ef";
-              }}
+              className="w-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-indigo-500 dark:focus:border-indigo-400 transition-all"
             />
           </div>
           
@@ -564,12 +669,7 @@ const ReportsPage = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          style={{
-            background: "#fff",
-            borderRadius: 16,
-            padding: 20,
-            boxShadow: "0 10px 25px rgba(0,0,0,0.06)",
-          }}
+          className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm"
         >
           {loading ? (
             <div style={{ textAlign: "center", padding: "3rem 0" }}>
@@ -591,73 +691,22 @@ const ReportsPage = () => {
             </div>
           ) : filteredRecords.length > 0 ? (
             <div style={{ overflowX: "auto" }}>
-              <table
-                style={{
-                  width: "100%",
-                  borderCollapse: "collapse",
-                  color: "#111827",
-                }}
-              >
-                <thead
-                  style={{
-                    background: "#f8fafc",
-                    borderBottom: "2px solid #e6e9ef",
-                  }}
-                >
+              <table className="w-full border-collapse text-gray-900 dark:text-gray-100">
+                <thead className="bg-gray-50 dark:bg-gray-700/50 border-b-2 border-gray-200 dark:border-gray-700">
                   <tr>
-                    <th
-                      style={{
-                        padding: "12px",
-                        textAlign: "left",
-                        fontWeight: 600,
-                        fontSize: 13,
-                        color: "#374151",
-                      }}
-                    >
+                    <th className="p-3 text-left font-semibold text-xs text-gray-700 dark:text-gray-300">
                       Client Name
                     </th>
-                    <th
-                      style={{
-                        padding: "12px",
-                        textAlign: "left",
-                        fontWeight: 600,
-                        fontSize: 13,
-                        color: "#374151",
-                      }}
-                    >
+                    <th className="p-3 text-left font-semibold text-xs text-gray-700 dark:text-gray-300">
                       Date
                     </th>
-                    <th
-                      style={{
-                        padding: "12px",
-                        textAlign: "center",
-                        fontWeight: 600,
-                        fontSize: 13,
-                        color: "#374151",
-                      }}
-                    >
+                    <th className="p-3 text-center font-semibold text-xs text-gray-700 dark:text-gray-300">
                       Status
                     </th>
-                    <th
-                      style={{
-                        padding: "12px",
-                        textAlign: "left",
-                        fontWeight: 600,
-                        fontSize: 13,
-                        color: "#374151",
-                      }}
-                    >
+                    <th className="p-3 text-left font-semibold text-xs text-gray-700 dark:text-gray-300">
                       Counselor
                     </th>
-                    <th
-                      style={{
-                        padding: "12px",
-                        textAlign: "center",
-                        fontWeight: 600,
-                        fontSize: 13,
-                        color: "#374151",
-                      }}
-                    >
+                    <th className="p-3 text-center font-semibold text-xs text-gray-700 dark:text-gray-300">
                       Actions
                     </th>
                   </tr>
@@ -671,26 +720,17 @@ const ReportsPage = () => {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0 }}
                         transition={{ delay: index * 0.03 }}
-                        style={{
-                          borderBottom: "1px solid #e6e9ef",
-                          transition: "all 0.2s",
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background = "#f8fafc";
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = "transparent";
-                        }}
+                        className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                       >
-                        <td style={{ padding: "12px", fontWeight: 500, fontSize: 14 }}>
+                        <td className="p-3 font-medium text-sm text-gray-900 dark:text-gray-100">
                           {record.clientName}
                         </td>
-                        <td style={{ padding: "12px", fontSize: 14 }}>
+                        <td className="p-3 text-sm text-gray-700 dark:text-gray-300">
                           {record.date
                             ? new Date(record.date).toLocaleDateString()
                             : "-"}
                         </td>
-                        <td style={{ padding: "12px" }}>
+                        <td className="p-3">
                           <span
                             style={{
                               padding: "4px 10px",
@@ -717,10 +757,10 @@ const ReportsPage = () => {
                             {record.status}
                           </span>
                         </td>
-                        <td style={{ padding: "12px", fontSize: 14 }}>
+                        <td className="p-3 text-sm text-gray-700 dark:text-gray-300">
                           {record.counselor}
                         </td>
-                        <td style={{ padding: "12px" }}>
+                        <td className="p-3">
                           <div
                             style={{
                               display: "flex",
@@ -767,6 +807,8 @@ const ReportsPage = () => {
           )}
         </motion.div>
       </div>
+        </main>
+      </div>
 
       {/* Modal for Detailed Record */}
       <AnimatePresence>
@@ -794,148 +836,53 @@ const ReportsPage = () => {
               exit={{ scale: 0.9, opacity: 0 }}
               transition={{ type: "spring", damping: 20 }}
               onClick={(e) => e.stopPropagation()}
-              style={{
-                background: "#fff",
-                borderRadius: 16,
-                padding: 24,
-                width: "100%",
-                maxWidth: "500px",
-                maxHeight: "90vh",
-                overflowY: "auto",
-                boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
-              }}
+              className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl"
             >
-              <h2
-                style={{
-                  fontSize: "1.25rem",
-                  fontWeight: 600,
-                  marginBottom: 20,
-                  color: "#111827",
-                }}
-              >
+              <h2 className="text-gray-900 dark:text-gray-100 text-xl font-semibold mb-5">
                 {selectedRecord.clientName} — Session Details
               </h2>
-              <p
-                style={{
-                  color: "#6b7280",
-                  marginBottom: 20,
-                  fontSize: 14,
-                }}
-              >
+              <p className="text-gray-600 dark:text-gray-400 mb-5 text-sm">
                 Counselor: <strong>{selectedRecord.counselor}</strong> | Date:{" "}
                 <strong>
                   {new Date(selectedRecord.date).toLocaleDateString()}
                 </strong>
               </p>
 
-              <div style={{ marginBottom: 16 }}>
-                <div
-                  style={{
-                    background: "rgba(79, 70, 229, 0.1)",
-                    padding: 16,
-                    borderRadius: 10,
-                    borderLeft: "4px solid #4f46e5",
-                    textAlign: "center",
-                  }}
-                >
-                  <div
-                    style={{
-                      fontSize: "0.9rem",
-                      color: "#6b7280",
-                      marginBottom: 5,
-                    }}
-                  >
+              <div className="mb-4">
+                <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-lg border-l-4 border-indigo-500 dark:border-indigo-400 text-center">
+                  <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">
                     Status
                   </div>
-                  <div
-                    style={{
-                      fontSize: "1.2rem",
-                      fontWeight: 600,
-                      color: "#4f46e5",
-                    }}
-                  >
+                  <div className="text-xl font-semibold text-indigo-600 dark:text-indigo-400">
                     {selectedRecord.status}
                   </div>
                 </div>
               </div>
 
-              <div style={{ marginBottom: 16 }}>
-                <label
-                  style={{
-                    display: "block",
-                    fontSize: 13,
-                    fontWeight: 500,
-                    marginBottom: 6,
-                    color: "#374151",
-                  }}
-                >
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-1.5 text-gray-700 dark:text-gray-300">
                   Notes
                 </label>
-                <div
-                  style={{
-                    background: "#f8fafc",
-                    borderRadius: 10,
-                    padding: 12,
-                    border: "1px solid #e6e9ef",
-                    color: "#4a5568",
-                    fontSize: 14,
-                    minHeight: 80,
-                    maxHeight: 200,
-                    overflowY: "auto",
-                  }}
-                >
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 text-sm min-h-[80px] max-h-[200px] overflow-y-auto">
                   {selectedRecord.notes || "No notes available"}
                 </div>
               </div>
 
-              <div style={{ marginBottom: 20 }}>
-                <label
-                  style={{
-                    display: "block",
-                    fontSize: 13,
-                    fontWeight: 500,
-                    marginBottom: 6,
-                    color: "#374151",
-                  }}
-                >
+              <div className="mb-5">
+                <label className="block text-sm font-medium mb-1.5 text-gray-700 dark:text-gray-300">
                   Outcome
                 </label>
-                <div
-                  style={{
-                    background: "#f8fafc",
-                    borderRadius: 10,
-                    padding: 12,
-                    border: "1px solid #e6e9ef",
-                    color: "#4a5568",
-                    fontSize: 14,
-                    minHeight: 80,
-                  }}
-                >
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 text-sm min-h-[80px]">
                   {selectedRecord.outcomes || selectedRecord.outcome || "No outcome recorded"}
                 </div>
               </div>
 
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "flex-end",
-                  gap: 12,
-                }}
-              >
+              <div className="flex justify-end gap-3">
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => setSelectedRecord(null)}
-                  style={{
-                    padding: "10px 20px",
-                    borderRadius: 10,
-                    border: "1px solid #e6e9ef",
-                    background: "#fff",
-                    cursor: "pointer",
-                    color: "#111827",
-                    fontWeight: 600,
-                    fontSize: 14,
-                  }}
+                  className="px-5 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 font-semibold text-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
                 >
                   Cancel
                 </motion.button>

@@ -1,187 +1,58 @@
 import { Link } from "react-router-dom";
 
 export default function Landing() {
-  const styles = {
-    container: {
-      display: "flex",
-      flexDirection: "column",
-      minHeight: "100vh",
-      width: "100vw",
-      overflowX: "hidden",
-      boxSizing: "border-box",
-      background: "linear-gradient(135deg, #eef2ff, #c7d2fe)",
-      color: "#111827",
-      fontFamily: "'Montserrat', sans-serif",
-    },
-    navbar: {
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "center",
-      padding: "20px 6%",
-      background: "rgba(255, 255, 255, 0.9)",
-      borderBottom: "1px solid rgba(226,232,240,0.8)",
-      position: "sticky",
-      top: 0,
-      zIndex: 10,
-    },
-    logo: {
-      fontSize: "1.8rem",
-      fontWeight: 700,
-      letterSpacing: "0.08em",
-      color: "#4f46e5",
-    },
-    navLinks: {
-      display: "flex",
-      gap: "16px",
-      alignItems: "center",
-    },
-    link: {
-      color: "#4f46e5",
-      textDecoration: "none",
-      fontWeight: 600,
-      fontSize: "0.95rem",
-      transition: "opacity 0.2s, color 0.2s",
-    },
-    hero: {
-      flex: 1,
-      display: "flex",
-      flexDirection: "column",
-      justifyContent: "center",
-      alignItems: "center",
-      textAlign: "center",
-      padding: "40px 16px",
-      maxWidth: "960px",
-      margin: "0 auto",
-    },
-    title: {
-      fontSize: "clamp(2.4rem, 4.5vw, 3.5rem)",
-      fontWeight: 800,
-      marginBottom: "20px",
-      color: "#111827",
-    },
-    subtitle: {
-      fontSize: "clamp(1rem, 2.2vw, 1.25rem)",
-      maxWidth: "640px",
-      lineHeight: 1.6,
-      color: "#6b7280",
-      marginBottom: "32px",
-    },
-    buttons: {
-      display: "flex",
-      gap: "16px",
-      flexWrap: "wrap",
-      justifyContent: "center",
-    },
-    btn: {
-      textDecoration: "none",
-      padding: "12px 30px",
-      borderRadius: "999px",
-      fontWeight: 600,
-      transition: "transform 0.15s ease, box-shadow 0.15s ease, background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease",
-      fontSize: "0.95rem",
-      display: "inline-flex",
-      alignItems: "center",
-      justifyContent: "center",
-      boxShadow: "0 12px 30px rgba(79, 70, 229, 0.25)",
-      border: "none",
-    },
-    primary: {
-      background: "linear-gradient(120deg,#4f46e5,#7c3aed)",
-      color: "#ffffff",
-    },
-    secondary: {
-      background: "#ffffff",
-      color: "#4f46e5",
-      border: "1px solid #dbeafe",
-      boxShadow: "0 6px 18px rgba(148,163,184,0.35)",
-    },
-    footer: {
-      textAlign: "center",
-      padding: "16px 0",
-      fontSize: "0.85rem",
-      color: "#6b7280",
-    },
-  };
-
   return (
-    <div style={styles.container}>
+    <div className="min-h-screen w-full flex flex-col overflow-x-hidden bg-gradient-to-br from-indigo-50 to-indigo-100 font-sans text-gray-900">
       {/* Navbar */}
-      <header style={styles.navbar}>
-        <h1 style={styles.logo}>Guidance</h1>
-        <nav style={styles.navLinks}>
+      <header className="flex justify-between items-center px-6 py-5 bg-white/90 backdrop-blur-sm border-b border-slate-200 sticky top-0 z-50">
+        <h1 className="text-2xl font-bold tracking-wide text-indigo-600">Guidance</h1>
+        <nav className="flex gap-6 items-center">
           <Link
             to="/login"
-            style={styles.link}
-            onMouseOver={(e) => (e.target.style.opacity = "0.7")}
-            onMouseOut={(e) => (e.target.style.opacity = "1")}
+            className="text-indigo-600 font-semibold hover:text-indigo-500 transition-colors"
           >
             Login
           </Link>
           <Link
-            to="/Signup"
-            style={styles.link}
-            onMouseOver={(e) => (e.target.style.opacity = "0.7")}
-            onMouseOut={(e) => (e.target.style.opacity = "1")}
+            to="/signup"
+            className="text-indigo-600 font-semibold hover:text-indigo-500 transition-colors"
           >
             Sign Up
           </Link>
         </nav>
       </header>
 
-  
-        <main style={styles.hero}>
-          <h2 style={styles.title}>Guidance Counsel Record System.</h2>
-          <p style={styles.subtitle}>
-            You have brains in your head. You have feet in your shoes. You can steer yourself any direction you choose.
-          </p>
-          <div style={styles.buttons}>
-            <Link
-              to="/Login"
-              style={{ ...styles.btn, ...styles.primary }}
-              onMouseOver={(e) => {
-                e.target.style.transform = "translateY(-1px)";
-                e.target.style.boxShadow = "0 18px 40px rgba(79, 70, 229, 0.35)";
-              }}
-              onMouseOut={(e) => {
-                e.target.style.transform = "translateY(0)";
-                e.target.style.boxShadow = "0 12px 30px rgba(79, 70, 229, 0.25)";
-              }}
-            >
-              Get Started
-            </Link>
-            <Link
-              to="/login"
-              style={{ ...styles.btn, ...styles.secondary }}
-              onMouseOver={(e) => {
-                e.target.style.transform = "translateY(-1px)";
-                e.target.style.boxShadow = "0 16px 32px rgba(148,163,184,0.45)";
-              }}
-              onMouseOut={(e) => {
-                e.target.style.transform = "translateY(0)";
-                e.target.style.boxShadow = "0 6px 18px rgba(148,163,184,0.35)";
-              }}
-            >
-              Log In
-            </Link>
-            <Link
-              to="/adminlogin"
-              style={{ ...styles.btn, ...styles.secondary }}
-              onMouseOver={(e) => {
-                e.target.style.transform = "translateY(-1px)";
-                e.target.style.boxShadow = "0 16px 32px rgba(148,163,184,0.45)";
-              }}
-              onMouseOut={(e) => {
-                e.target.style.transform = "translateY(0)";
-                e.target.style.boxShadow = "0 6px 18px rgba(148,163,184,0.35)";
-              }}
-            >
-              Admin Login
-            </Link>
-          </div>
-        </main>
+      <main className="flex-1 flex flex-col justify-center items-center text-center px-4 py-10 max-w-5xl mx-auto w-full">
+        <h2 className="text-4xl md:text-6xl font-extrabold text-gray-900 mb-6 leading-tight">
+          Guidance Counsel Record System.
+        </h2>
+        <p className="text-lg md:text-xl text-gray-500 max-w-2xl leading-relaxed mb-10">
+          You have brains in your head. You have feet in your shoes. You can steer yourself any direction you choose.
+        </p>
+        <div className="flex flex-wrap gap-4 justify-center">
+          <Link
+            to="/login"
+            className="px-8 py-3 rounded-full font-semibold transition-all duration-200 transform hover:-translate-y-0.5 shadow-lg hover:shadow-xl flex items-center justify-center bg-gradient-to-r from-indigo-600 to-violet-600 text-white hover:shadow-indigo-500/30"
+          >
+            Get Started
+          </Link>
+          <Link
+            to="/login"
+            className="px-8 py-3 rounded-full font-semibold transition-all duration-200 transform hover:-translate-y-0.5 shadow-lg hover:shadow-xl flex items-center justify-center bg-white text-indigo-600 border border-indigo-100 hover:border-indigo-200"
+          >
+            Log In
+          </Link>
+          <Link
+            to="/adminlogin"
+            className="px-8 py-3 rounded-full font-semibold transition-all duration-200 transform hover:-translate-y-0.5 shadow-lg hover:shadow-xl flex items-center justify-center bg-white text-indigo-600 border border-indigo-100 hover:border-indigo-200"
+          >
+            Admin Login
+          </Link>
+        </div>
+      </main>
 
-        {/* Footer */}
-      <footer style={styles.footer}>
+      {/* Footer */}
+      <footer className="text-center py-6 text-sm text-gray-500">
         © {new Date().getFullYear()} Collab Project. All rights reserved.
       </footer>
     </div>
