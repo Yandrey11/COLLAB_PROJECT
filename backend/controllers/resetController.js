@@ -1,5 +1,5 @@
 import nodemailer from "nodemailer";
-import User from "../models/user.js";
+import User from "../models/User.js";
 import Admin from "../models/Admin.js";
 import { validatePassword } from "../utils/passwordValidation.js";
 
@@ -108,12 +108,13 @@ export const resetPassword = async (req, res) => {
       return res.status(400).json({ message: "New password is required" });
     }
 
-    // Password strength validation using shared rules
-    const { isValid, errors } = validatePassword(newPassword);
-    if (!isValid) {
+    // Enhanced password validation with email
+    const validation = validatePassword(newPassword, { email: user.email || email, name: user.name || "" });
+    if (!validation.isValid) {
       return res.status(400).json({
         message: "Password does not meet the security requirements.",
-        details: errors,
+        errors: validation.errors,
+        details: validation.details,
       });
     }
 
@@ -139,12 +140,13 @@ export const setPasswordWithToken = async (req, res) => {
       return res.status(400).json({ message: "Token, email, and new password are required" });
     }
 
-    // Password strength validation using shared rules
-    const { isValid, errors } = validatePassword(newPassword);
-    if (!isValid) {
+    // Enhanced password validation with email
+    const validation = validatePassword(newPassword, { email: user.email || email, name: user.name || "" });
+    if (!validation.isValid) {
       return res.status(400).json({
         message: "Password does not meet the security requirements.",
-        details: errors,
+        errors: validation.errors,
+        details: validation.details,
       });
     }
 

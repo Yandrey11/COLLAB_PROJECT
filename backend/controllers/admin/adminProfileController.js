@@ -261,12 +261,13 @@ export const changePassword = async (req, res) => {
       });
     }
 
-    // Validate new password
-    const validationResult = validatePassword(newPassword);
+    // Enhanced password validation with email and name
+    const validationResult = validatePassword(newPassword, { email: admin.email || "", name: admin.name || "" });
     if (!validationResult.isValid) {
       return res.status(400).json({
         success: false,
-        message: validationResult.errors.join(", "),
+        message: "New password does not meet security requirements",
+        errors: validationResult.errors,
       });
     }
 

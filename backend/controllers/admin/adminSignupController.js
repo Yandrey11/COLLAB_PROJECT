@@ -16,12 +16,13 @@ export const adminSignup = async (req, res) => {
       return res.status(400).json({ message: "Email already in use" });
     }
 
-    // Password strength validation
-    const { isValid, errors } = validatePassword(password);
-    if (!isValid) {
+    // Enhanced password validation with email and name
+    const validation = validatePassword(password, { email, name });
+    if (!validation.isValid) {
       return res.status(400).json({
         message: "Password does not meet the security requirements.",
-        details: errors,
+        errors: validation.errors,
+        details: validation.details,
       });
     }
 

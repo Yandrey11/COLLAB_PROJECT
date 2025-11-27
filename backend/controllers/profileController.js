@@ -313,13 +313,13 @@ export const changePassword = async (req, res) => {
       });
     }
 
-    // Validate new password strength
-    const { isValid, errors } = validatePassword(newPassword);
-    if (!isValid) {
+    // Enhanced password validation with email and name
+    const validation = validatePassword(newPassword, { email: user.email || "", name: user.name || "" });
+    if (!validation.isValid) {
       return res.status(400).json({
         success: false,
         message: "New password does not meet security requirements",
-        errors,
+        errors: validation.errors,
       });
     }
 

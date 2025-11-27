@@ -1,4 +1,4 @@
-import User from "../models/user.js";
+import User from "../models/User.js";
 import GoogleUser from "../models/GoogleUser.js";
 import jwt from "jsonwebtoken";
 import { createSession } from "./admin/sessionController.js";

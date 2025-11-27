@@ -94,7 +94,7 @@ export const getAllRecords = async (req, res) => {
   } catch (error) {
     console.error("❌ Error fetching records:", error);
     res.status(500).json({ message: "Failed to fetch records", error: error.message });
-  };
+  }
 };
 
 // 👁️ Get single record by ID

@@ -1,4 +1,4 @@
-import User from "../models/user.js";
+import User from "../models/User.js";
 import Admin from "../models/Admin.js";
 import GoogleUser from "../models/GoogleUser.js";
 import jwt from "jsonwebtoken";
@@ -12,12 +12,13 @@ export const signup = async (req, res) => {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    // Password strength validation
-    const { isValid, errors } = validatePassword(password);
-    if (!isValid) {
+    // Enhanced password validation with email and name
+    const validation = validatePassword(password, { email, name });
+    if (!validation.isValid) {
       return res.status(400).json({
         message: "Password does not meet the security requirements.",
-        details: errors,
+        errors: validation.errors,
+        details: validation.details,
       });
     }
 
