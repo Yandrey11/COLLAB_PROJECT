@@ -9,6 +9,30 @@ const adminSchema = new mongoose.Schema(
     role: { type: String, default: "admin" },
     resetPasswordCode: { type: String },
     resetPasswordExpires: { type: Date },
+    // Profile fields
+    profilePicture: { type: String, default: null },
+    phoneNumber: { type: String },
+    bio: { type: String, maxLength: 500 },
+    // Settings fields
+    settings: {
+      display: {
+        theme: { type: String, enum: ["light", "dark"], default: "light" },
+        uiDensity: { type: String, enum: ["compact", "normal"], default: "normal" },
+        defaultDashboardView: { type: String, enum: ["users", "records", "notifications", "analytics"], default: "records" },
+      },
+      notifications: {
+        newUserCreations: { type: Boolean, default: true },
+        recordUpdates: { type: Boolean, default: true },
+        criticalSystemAlerts: { type: Boolean, default: true },
+        pdfGenerations: { type: Boolean, default: true },
+        loginAttempts: { type: Boolean, default: false },
+        soundEnabled: { type: Boolean, default: false },
+      },
+      privacy: {
+        hideProfilePhoto: { type: Boolean, default: false },
+        maskNameInNotifications: { type: Boolean, default: false },
+      },
+    },
   },
   { timestamps: true }
 );

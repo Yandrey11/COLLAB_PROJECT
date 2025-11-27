@@ -19,6 +19,12 @@ const userSchema = new mongoose.Schema(
     googleId: { type: String },
     resetPasswordCode: { type: String },
     resetPasswordExpires: { type: Date },
+    googleCalendarAccessToken: { type: String },
+    googleCalendarRefreshToken: { type: String },
+    googleCalendarTokenExpires: { type: Date },
+    profilePicture: { type: String, default: null },
+    phoneNumber: { type: String },
+    bio: { type: String, maxLength: 500 },
   },
   { timestamps: true }
 );
