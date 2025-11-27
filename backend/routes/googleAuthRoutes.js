@@ -5,16 +5,39 @@ import { googleAuthSuccess, googleAuthFailure } from "../controllers/googleAuthC
 
 const router = express.Router();
 
-// Start Google login
+// Start Google login - include calendar scopes for automatic calendar connection
 router.get(
   "/google",
-  passport.authenticate("google", { scope: ["profile", "email"] })
+  passport.authenticate("google", {
+    scope: [
+      "profile",
+      "email",
+      "https://www.googleapis.com/auth/calendar.readonly",
+      "https://www.googleapis.com/auth/calendar",
+    ],
+    accessType: "offline",
+    prompt: "consent",
+  })
 );
 
 // Callback from Google
 router.get(
   "/google/callback",
-  passport.authenticate("google", { failureRedirect: "/auth/google/failure" }),
+  (req, res, next) => {
+    console.log("🔵 Google OAuth callback received. Query params:", req.query);
+    console.log("🔵 Session ID:", req.sessionID);
+    console.log("🔵 Session user before auth:", req.session?.passport?.user);
+    next();
+  },
+  passport.authenticate("google", { 
+    failureRedirect: "/auth/google/failure",
+    session: true // Explicitly enable session
+  }),
+  (req, res, next) => {
+    console.log("🟢 After passport.authenticate. req.user:", req.user ? { id: req.user._id || req.user.id, email: req.user.email } : "null");
+    console.log("🟢 Session user after auth:", req.session?.passport?.user);
+    next();
+  },
   googleAuthSuccess
 );
 
