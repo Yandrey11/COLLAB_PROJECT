@@ -8,7 +8,7 @@ export const getNotifications = async (req, res) => {
 
     // Build query
     const query = {};
-    
+
     if (status !== "all") {
       query.status = status;
     }
@@ -72,7 +72,7 @@ export const markAsRead = async (req, res) => {
     const { notificationId } = req.params;
 
     const notification = await Notification.findById(notificationId);
-    
+
     if (!notification) {
       return res.status(404).json({ message: "Notification not found" });
     }
@@ -99,7 +99,7 @@ export const markAsUnread = async (req, res) => {
     const { notificationId } = req.params;
 
     const notification = await Notification.findById(notificationId);
-    
+
     if (!notification) {
       return res.status(404).json({ message: "Notification not found" });
     }
@@ -140,7 +140,7 @@ export const deleteNotification = async (req, res) => {
     const { notificationId } = req.params;
 
     const notification = await Notification.findByIdAndDelete(notificationId);
-    
+
     if (!notification) {
       return res.status(404).json({ message: "Notification not found" });
     }

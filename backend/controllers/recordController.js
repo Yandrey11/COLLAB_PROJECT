@@ -5,6 +5,7 @@ import fs from "fs";
 import path from "path";
 import { google } from "googleapis";
 import { createNotification } from "./admin/notificationController.js";
+import { createCounselorNotification } from "./counselorNotificationController.js";
 
 // Helper to get user info from request
 const getUserInfo = (req) => {
@@ -107,7 +108,31 @@ export const updateRecord = async (req, res) => {
         relatedType: "record",
       });
     } catch (notificationError) {
-      console.error("⚠️ Notification creation failed (non-critical):", notificationError);
+      console.error("⚠️ Admin notification creation failed (non-critical):", notificationError);
+    }
+
+    // ✅ Create notification for the counselor who updated the record
+    try {
+      if (req.user?._id || req.user?.id) {
+        await createCounselorNotification({
+          counselorId: req.user._id || req.user.id,
+          counselorEmail: req.user.email,
+          title: "Record Updated Successfully",
+          description: `Your record for ${record.clientName} (Session ${record.sessionNumber}) has been updated.`,
+          category: "Updated Record",
+          priority: "medium",
+          metadata: {
+            clientName: record.clientName,
+            recordId: record._id.toString(),
+            sessionNumber: record.sessionNumber,
+            updatedFields: changes.map((c) => c.field),
+          },
+          relatedId: record._id,
+          relatedType: "record",
+        });
+      }
+    } catch (notificationError) {
+      console.error("⚠️ Counselor notification creation failed (non-critical):", notificationError);
     }
 
     res.json(record);
@@ -129,43 +154,51 @@ const addHeaderFooter = (doc, pageNum, totalPages, trackingNumber, reportDate) =
   const pageHeight = doc.page.height;
 
   // Header - Blue background (#667eea = rgb(102, 126, 234))
-  doc.rect(0, 0, pageWidth, 30)
-     .fillColor('rgb(102, 126, 234)')
-     .fill();
+  // Set blue fill color and draw rectangle
+  doc.fillColor(102, 126, 234);
+  doc.rect(0, 0, pageWidth, 30).fill();
   
-  doc.fillColor('white')
-     .fontSize(16)
+  // Header text in white (use numeric RGB for reliability)
+  doc.fillColor(255, 255, 255);
+  doc.fontSize(16)
      .font('Helvetica-Bold')
      .text("COUNSELING RECORDS REPORT", pageWidth / 2, 12, { align: 'center' });
   
   doc.fontSize(9)
      .font('Helvetica')
-     .text(`Document Tracking: ${trackingNumber}`, 14, 22);
-  
+     .fillColor(255, 255, 255);
+  doc.text(`Document Tracking: ${trackingNumber}`, 14, 22);
+  doc.fillColor(255, 255, 255);
   doc.text(`Date: ${reportDate}`, pageWidth - 14, 22, { align: 'right' });
 
   // Footer - Blue background
-  doc.rect(0, pageHeight - 35, pageWidth, 35)
-     .fillColor('rgb(102, 126, 234)')
-     .fill();
+  // Set blue fill color and draw rectangle
+  doc.fillColor(102, 126, 234);
+  doc.rect(0, pageHeight - 35, pageWidth, 35).fill();
   
-  doc.fillColor('white')
-     .fontSize(8)
+  // Footer text in white
+  doc.fillColor(255, 255, 255);
+  doc.fontSize(8)
      .font('Helvetica')
      .text("CONFIDENTIAL - This document contains sensitive information and is protected under client confidentiality agreements.", 
        pageWidth / 2, pageHeight - 28, { align: 'center', width: pageWidth - 28 });
   
   doc.fontSize(7)
-     .text("Counseling Services Management System", 14, pageHeight - 18)
-     .text(`Page ${pageNum} of ${totalPages}`, pageWidth / 2, pageHeight - 18, { align: 'center' })
-     .text(`Tracking: ${trackingNumber}`, pageWidth - 14, pageHeight - 18, { align: 'right' });
+     .fillColor(255, 255, 255);
+  doc.text("Counseling Services Management System", 14, pageHeight - 18);
+  doc.fillColor(255, 255, 255);
+  doc.text(`Page ${pageNum} of ${totalPages}`, pageWidth / 2, pageHeight - 18, { align: 'center' });
+  doc.fillColor(255, 255, 255);
+  doc.text(`Tracking: ${trackingNumber}`, pageWidth - 14, pageHeight - 18, { align: 'right' });
   
   doc.fontSize(6)
-     .text("For inquiries, contact your system administrator. This report is generated electronically.", 
-       pageWidth / 2, pageHeight - 10, { align: 'center', width: pageWidth - 28 });
-
-  // Reset text color for content
-  doc.fillColor('black');
+     .fillColor(255, 255, 255);
+  doc.text("For inquiries, contact your system administrator. This report is generated electronically.", 
+    pageWidth / 2, pageHeight - 10, { align: 'center', width: pageWidth - 28 });
+  
+  // CRITICAL: Reset fillColor to black after header/footer (which uses white)
+  // This ensures all subsequent content text is visible
+  doc.fillColor(0, 0, 0);
 };
 
 // Helper function to upload record to drive
@@ -180,124 +213,100 @@ const uploadRecordToDrive = async (record, req) => {
     const counselorName = record.counselor || req.user?.name || req.user?.email || "Unknown_Counselor";
     const sanitizedCounselorName = counselorName.replace(/[^a-zA-Z0-9]/g, '_');
 
-    // Generate tracking number and dates
+    // Generate tracking number
     const trackingNumber = generateTrackingNumber();
-    const reportDate = new Date().toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    });
-    const reportDateTime = new Date().toLocaleString();
 
-    // ✅ Generate PDF file locally with report format
+    // ✅ Generate PDF file locally with simple single-page format
     const tempDir = path.join(process.cwd(), "temp");
     fs.mkdirSync(tempDir, { recursive: true });
     const pdfPath = path.join(tempDir, `${sanitizedCounselorName}_${record.clientName.replace(/\s+/g, '_')}_${trackingNumber}.pdf`);
 
-    const doc = new PDFDocument({ margin: 0 });
+    const doc = new PDFDocument({ 
+      margin: 72, // 1 inch margins on all sides
+      size: 'LETTER'
+    });
     const writeStream = fs.createWriteStream(pdfPath);
     doc.pipe(writeStream);
 
-    // Page 1: Summary Statistics Page
-    addHeaderFooter(doc, 1, 2, trackingNumber, reportDate);
-    
-    let finalY = 50; // Start below header
+    // Get page dimensions
     const pageWidth = doc.page.width;
     const pageHeight = doc.page.height;
+    const leftMargin = 72;
+    const rightMargin = 72;
+    const contentWidth = pageWidth - leftMargin - rightMargin;
+    
+    // Start from top with some spacing
+    let finalY = 100;
 
-    // Title
-    doc.fillColor('black')
-       .fontSize(20)
+    // Set black color for all text
+    doc.fillColor(0, 0, 0);
+
+    // Main Title - "Counseling Record" (centered, large, bold)
+    doc.fontSize(24)
        .font('Helvetica-Bold')
-       .text("COUNSELING RECORDS REPORT", pageWidth / 2, finalY, { align: 'center' });
-    finalY += 15;
+       .fillColor(0, 0, 0)
+       .text("Counseling Record", pageWidth / 2, finalY, { align: 'center' });
+    finalY += 50;
 
-    // Report Information
+    // Client Details Section (left-aligned)
     doc.fontSize(12)
        .font('Helvetica')
-       .text(`Report Generated: ${reportDateTime}`, pageWidth / 2, finalY, { align: 'center' });
-    finalY += 10;
-    doc.text(`Document Tracking Number: ${trackingNumber}`, pageWidth / 2, finalY, { align: 'center' });
-    finalY += 10;
-    doc.text(`Total Records: 1`, pageWidth / 2, finalY, { align: 'center' });
-    finalY += 20;
-
-    // Summary Statistics Section
-    doc.fontSize(14)
-       .font('Helvetica-Bold')
-       .text("Summary Statistics", pageWidth / 2, finalY, { align: 'center' });
-    finalY += 15;
-
-    // Calculate statistics
-    const completed = record.status === "Completed" ? 1 : 0;
-    const ongoing = record.status === "Ongoing" ? 1 : 0;
-    const referred = record.status === "Referred" ? 1 : 0;
-
-    doc.fontSize(11)
-       .font('Helvetica')
-       .text(`Completed Sessions: ${completed}`, 14, finalY);
-    finalY += 8;
-    doc.text(`Ongoing Sessions: ${ongoing}`, 14, finalY);
-    finalY += 8;
-    doc.text(`Referred Sessions: ${referred}`, 14, finalY);
-
-    // Add second page with detailed records
-    doc.addPage();
-    addHeaderFooter(doc, 2, 2, trackingNumber, reportDate);
-    finalY = 50;
-
-    // Detailed Records Title
-    doc.fontSize(16)
-       .font('Helvetica-Bold')
-       .text("DETAILED RECORDS", pageWidth / 2, finalY, { align: 'center' });
-    finalY += 15;
-
-    // Record 1 heading
-    doc.fontSize(14)
-       .font('Helvetica-Bold')
-       .text("Record 1", 14, finalY);
-    finalY += 10;
-
-    // Record details
-    doc.fontSize(11)
-       .font('Helvetica');
+       .fillColor(0, 0, 0);
     
-    const details = [
-      { label: "Client Name", value: record.clientName || "N/A" },
-      { label: "Date", value: record.date ? new Date(record.date).toLocaleDateString() : "N/A" },
-      { label: "Status", value: record.status || "N/A" },
-      { label: "Counselor", value: record.counselor || "N/A" },
-    ];
+    doc.text(`Client Name: ${record.clientName || "N/A"}`, leftMargin, finalY);
+    finalY += 20;
+    
+    doc.text(`Date: ${record.date ? new Date(record.date).toLocaleDateString() : "N/A"}`, leftMargin, finalY);
+    finalY += 20;
+    
+    doc.text(`Session Type: ${record.sessionType || "N/A"}`, leftMargin, finalY);
+    finalY += 20;
+    
+    doc.text(`Status: ${record.status || "N/A"}`, leftMargin, finalY);
+    finalY += 20;
+    
+    doc.text(`Counselor: ${record.counselor || "Unknown Counselor"}`, leftMargin, finalY);
+    finalY += 40;
 
-    details.forEach(detail => {
-      doc.font('Helvetica-Bold')
-         .text(`${detail.label}:`, 14, finalY);
-      doc.font('Helvetica')
-         .text(detail.value, 14 + 60, finalY);
-      finalY += 7;
-    });
-
-    finalY += 5;
-
-    // Notes
-    doc.font('Helvetica-Bold')
-       .text("Notes:", 14, finalY);
-    finalY += 7;
-    doc.font('Helvetica')
-       .text(record.notes || "No notes available", 14, finalY, { 
-         width: pageWidth - 28,
-         align: 'left'
+    // Session Notes Section
+    doc.fontSize(12)
+       .font('Helvetica-Bold')
+       .fillColor(0, 0, 0)
+       .text("Session Notes:", leftMargin, finalY);
+    finalY += 20;
+    
+    const notesText = record.notes || "No notes available.";
+    doc.fontSize(12)
+       .font('Helvetica')
+       .fillColor(0, 0, 0)
+       .text(notesText, leftMargin, finalY, { 
+         width: contentWidth,
+         align: 'left',
+         lineGap: 5
        });
-    finalY += (record.notes ? record.notes.split('\n').length * 5 : 5) + 7;
+    
+    // Calculate height used by notes
+    const notesHeight = doc.heightOfString(notesText, {
+      width: contentWidth,
+      lineGap: 5
+    });
+    finalY += notesHeight + 30;
 
-    // Outcome (singular, not plural)
-    doc.font('Helvetica-Bold')
-       .text("Outcome:", 14, finalY);
-    finalY += 7;
-    doc.font('Helvetica')
-       .text(record.outcomes || "No outcome recorded", 14, finalY, { 
-         width: pageWidth - 28,
-         align: 'left'
+    // Outcomes Section
+    doc.fontSize(12)
+       .font('Helvetica-Bold')
+       .fillColor(0, 0, 0)
+       .text("Outcomes:", leftMargin, finalY);
+    finalY += 20;
+    
+    const outcomeText = record.outcomes || record.outcome || "No outcome recorded.";
+    doc.fontSize(12)
+       .font('Helvetica')
+       .fillColor(0, 0, 0)
+       .text(outcomeText, leftMargin, finalY, { 
+         width: contentWidth,
+         align: 'left',
+         lineGap: 5
        });
 
     doc.end();
@@ -354,7 +363,32 @@ const uploadRecordToDrive = async (record, req) => {
         relatedType: "record",
       });
     } catch (notificationError) {
-      console.error("⚠️ Notification creation failed (non-critical):", notificationError);
+      console.error("⚠️ Admin notification creation failed (non-critical):", notificationError);
+    }
+
+    // ✅ Create notification for counselor about successful Drive upload
+    try {
+      if (req.user?._id || req.user?.id) {
+        await createCounselorNotification({
+          counselorId: req.user._id || req.user.id,
+          counselorEmail: req.user.email,
+          title: "Record Uploaded to Google Drive",
+          description: `Your record for ${record.clientName} (Session ${record.sessionNumber}) has been successfully uploaded to Google Drive.`,
+          category: "New Record",
+          priority: "low",
+          metadata: {
+            clientName: record.clientName,
+            recordId: record._id.toString(),
+            sessionNumber: record.sessionNumber,
+            driveLink: driveLink,
+            fileName: fileName,
+          },
+          relatedId: record._id,
+          relatedType: "record",
+        });
+      }
+    } catch (notificationError) {
+      console.error("⚠️ Counselor notification creation failed (non-critical):", notificationError);
     }
 
     // ✅ Clean up local PDF
@@ -438,13 +472,58 @@ export const createRecord = async (req, res) => {
         relatedType: "record",
       });
     } catch (notificationError) {
-      console.error("⚠️ Notification creation failed (non-critical):", notificationError);
+      console.error("⚠️ Admin notification creation failed (non-critical):", notificationError);
+    }
+
+    // ✅ Create notification for the counselor who created the record
+    try {
+      if (req.user?._id || req.user?.id) {
+        await createCounselorNotification({
+          counselorId: req.user._id || req.user.id,
+          counselorEmail: req.user.email,
+          title: "Record Created Successfully",
+          description: `Your record for ${record.clientName} (Session ${record.sessionNumber}) has been created and uploaded to Google Drive.`,
+          category: "New Record",
+          priority: "medium",
+          metadata: {
+            clientName: record.clientName,
+            recordId: record._id.toString(),
+            sessionNumber: record.sessionNumber,
+            driveLink: record.driveLink || null,
+          },
+          relatedId: record._id,
+          relatedType: "record",
+        });
+      }
+    } catch (notificationError) {
+      console.error("⚠️ Counselor notification creation failed (non-critical):", notificationError);
     }
     
     // ✅ Automatically upload to drive after saving
     const driveLink = await uploadRecordToDrive(record, req);
     if (driveLink) {
       console.log("✅ Record automatically uploaded to Google Drive");
+      
+      // ✅ Update counselor notification with drive link (if notification was created)
+      try {
+        if (req.user?._id || req.user?.id) {
+          // Find the most recent notification for this counselor about this record
+          const CounselorNotification = (await import("../models/CounselorNotification.js")).default;
+          const notification = await CounselorNotification.findOne({
+            counselorId: req.user._id || req.user.id,
+            relatedId: record._id,
+            relatedType: "record",
+            category: "New Record",
+          }).sort({ createdAt: -1 });
+
+          if (notification) {
+            notification.metadata.driveLink = driveLink;
+            await notification.save();
+          }
+        }
+      } catch (updateError) {
+        console.error("⚠️ Failed to update notification with drive link (non-critical):", updateError);
+      }
     }
 
     res.status(201).json(record);
@@ -476,124 +555,100 @@ export const uploadToDrive = async (req, res) => {
     const counselorName = record.counselor || req.user?.name || req.user?.email || "Unknown_Counselor";
     const sanitizedCounselorName = counselorName.replace(/[^a-zA-Z0-9]/g, '_');
 
-    // Generate tracking number and dates
+    // Generate tracking number
     const trackingNumber = generateTrackingNumber();
-    const reportDate = new Date().toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    });
-    const reportDateTime = new Date().toLocaleString();
 
-    // ✅ Generate PDF file locally with report format
+    // ✅ Generate PDF file locally with simple single-page format
     const tempDir = path.join(process.cwd(), "temp");
     fs.mkdirSync(tempDir, { recursive: true });
     const pdfPath = path.join(tempDir, `${sanitizedCounselorName}_${record.clientName.replace(/\s+/g, '_')}_${trackingNumber}.pdf`);
 
-    const doc = new PDFDocument({ margin: 0 });
+    const doc = new PDFDocument({ 
+      margin: 72, // 1 inch margins on all sides
+      size: 'LETTER'
+    });
     const writeStream = fs.createWriteStream(pdfPath);
     doc.pipe(writeStream);
 
-    // Page 1: Summary Statistics Page
-    addHeaderFooter(doc, 1, 2, trackingNumber, reportDate, counselorName);
-    
-    let finalY = 60;
+    // Get page dimensions
     const pageWidth = doc.page.width;
     const pageHeight = doc.page.height;
+    const leftMargin = 72;
+    const rightMargin = 72;
+    const contentWidth = pageWidth - leftMargin - rightMargin;
+    
+    // Start from top with some spacing
+    let finalY = 100;
 
-    // Title
-    doc.fillColor('black')
-       .fontSize(20)
+    // Set black color for all text
+    doc.fillColor(0, 0, 0);
+
+    // Main Title - "Counseling Record" (centered, large, bold)
+    doc.fontSize(24)
        .font('Helvetica-Bold')
-       .text("COUNSELING RECORDS REPORT", pageWidth / 2, finalY, { align: 'center' });
-    finalY += 15;
+       .fillColor(0, 0, 0)
+       .text("Counseling Record", pageWidth / 2, finalY, { align: 'center' });
+    finalY += 50;
 
-    // Report Information
+    // Client Details Section (left-aligned)
     doc.fontSize(12)
        .font('Helvetica')
-       .text(`Report Generated: ${reportDateTime}`, pageWidth / 2, finalY, { align: 'center' });
-    finalY += 10;
-    doc.text(`Document Tracking Number: ${trackingNumber}`, pageWidth / 2, finalY, { align: 'center' });
-    finalY += 10;
-    doc.text(`Total Records: 1`, pageWidth / 2, finalY, { align: 'center' });
-    finalY += 20;
-
-    // Summary Statistics Section
-    doc.fontSize(14)
-       .font('Helvetica-Bold')
-       .text("Summary Statistics", pageWidth / 2, finalY, { align: 'center' });
-    finalY += 15;
-
-    // Calculate statistics
-    const completed = record.status === "Completed" ? 1 : 0;
-    const ongoing = record.status === "Ongoing" ? 1 : 0;
-    const referred = record.status === "Referred" ? 1 : 0;
-
-    doc.fontSize(11)
-       .font('Helvetica')
-       .text(`Completed Sessions: ${completed}`, 14, finalY);
-    finalY += 8;
-    doc.text(`Ongoing Sessions: ${ongoing}`, 14, finalY);
-    finalY += 8;
-    doc.text(`Referred Sessions: ${referred}`, 14, finalY);
-
-    // Add second page with detailed records
-    doc.addPage();
-    addHeaderFooter(doc, 2, 2, trackingNumber, reportDate);
-    finalY = 50;
-
-    // Detailed Records Title
-    doc.fontSize(16)
-       .font('Helvetica-Bold')
-       .text("DETAILED RECORDS", pageWidth / 2, finalY, { align: 'center' });
-    finalY += 15;
-
-    // Record 1 heading
-    doc.fontSize(14)
-       .font('Helvetica-Bold')
-       .text("Record 1", 14, finalY);
-    finalY += 10;
-
-    // Record details
-    doc.fontSize(11)
-       .font('Helvetica');
+       .fillColor(0, 0, 0);
     
-    const details = [
-      { label: "Client Name", value: record.clientName || "N/A" },
-      { label: "Date", value: record.date ? new Date(record.date).toLocaleDateString() : "N/A" },
-      { label: "Status", value: record.status || "N/A" },
-      { label: "Counselor", value: record.counselor || "N/A" },
-    ];
+    doc.text(`Client Name: ${record.clientName || "N/A"}`, leftMargin, finalY);
+    finalY += 20;
+    
+    doc.text(`Date: ${record.date ? new Date(record.date).toLocaleDateString() : "N/A"}`, leftMargin, finalY);
+    finalY += 20;
+    
+    doc.text(`Session Type: ${record.sessionType || "N/A"}`, leftMargin, finalY);
+    finalY += 20;
+    
+    doc.text(`Status: ${record.status || "N/A"}`, leftMargin, finalY);
+    finalY += 20;
+    
+    doc.text(`Counselor: ${record.counselor || "Unknown Counselor"}`, leftMargin, finalY);
+    finalY += 40;
 
-    details.forEach(detail => {
-      doc.font('Helvetica-Bold')
-         .text(`${detail.label}:`, 14, finalY);
-      doc.font('Helvetica')
-         .text(detail.value, 14 + 60, finalY);
-      finalY += 7;
-    });
-
-    finalY += 5;
-
-    // Notes
-    doc.font('Helvetica-Bold')
-       .text("Notes:", 14, finalY);
-    finalY += 7;
-    doc.font('Helvetica')
-       .text(record.notes || "No notes available", 14, finalY, { 
-         width: pageWidth - 28,
-         align: 'left'
+    // Session Notes Section
+    doc.fontSize(12)
+       .font('Helvetica-Bold')
+       .fillColor(0, 0, 0)
+       .text("Session Notes:", leftMargin, finalY);
+    finalY += 20;
+    
+    const notesText = record.notes || "No notes available.";
+    doc.fontSize(12)
+       .font('Helvetica')
+       .fillColor(0, 0, 0)
+       .text(notesText, leftMargin, finalY, { 
+         width: contentWidth,
+         align: 'left',
+         lineGap: 5
        });
-    finalY += (record.notes ? record.notes.split('\n').length * 5 : 5) + 7;
+    
+    // Calculate height used by notes
+    const notesHeight = doc.heightOfString(notesText, {
+      width: contentWidth,
+      lineGap: 5
+    });
+    finalY += notesHeight + 30;
 
-    // Outcome (singular, not plural)
-    doc.font('Helvetica-Bold')
-       .text("Outcome:", 14, finalY);
-    finalY += 7;
-    doc.font('Helvetica')
-       .text(record.outcomes || "No outcome recorded", 14, finalY, { 
-         width: pageWidth - 28,
-         align: 'left'
+    // Outcomes Section
+    doc.fontSize(12)
+       .font('Helvetica-Bold')
+       .fillColor(0, 0, 0)
+       .text("Outcomes:", leftMargin, finalY);
+    finalY += 20;
+    
+    const outcomeText = record.outcomes || record.outcome || "No outcome recorded.";
+    doc.fontSize(12)
+       .font('Helvetica')
+       .fillColor(0, 0, 0)
+       .text(outcomeText, leftMargin, finalY, { 
+         width: contentWidth,
+         align: 'left',
+         lineGap: 5
        });
 
     doc.end();
@@ -664,5 +719,96 @@ export const uploadToDrive = async (req, res) => {
   } catch (err) {
     console.error("❌ Drive upload error:", err);
     res.status(500).json({ error: err.message });
+  }
+};
+
+// 🗑️ Delete a record (for counselors)
+export const deleteRecord = async (req, res) => {
+  try {
+    const userInfo = getUserInfo(req);
+    const record = await Record.findById(req.params.id);
+
+    if (!record) {
+      return res.status(404).json({ message: "Record not found" });
+    }
+
+    // Check if the record belongs to the counselor
+    const counselorName = userInfo.userName;
+    const counselorEmail = req.user?.email;
+    
+    // Allow deletion if the record's counselor matches the authenticated user
+    const isOwner = record.counselor === counselorName || 
+                   record.counselor === counselorEmail ||
+                   (req.user?.email && record.counselor === req.user.email) ||
+                   (req.user?.name && record.counselor === req.user.name);
+
+    if (!isOwner && req.user?.role !== "admin") {
+      return res.status(403).json({ 
+        message: "You don't have permission to delete this record. Only the record owner can delete it." 
+      });
+    }
+
+    // Update audit trail before deletion (soft delete approach)
+    if (record.auditTrail) {
+      record.auditTrail.deletedBy = userInfo;
+      record.auditTrail.deletedAt = new Date();
+      await record.save();
+    }
+
+    // Delete the record
+    await Record.findByIdAndDelete(req.params.id);
+
+    // ✅ Create notification for admins
+    try {
+      await createNotification({
+        title: "Record Deleted",
+        description: `${userInfo.userName} (${userInfo.userRole}) deleted record for client: ${record.clientName} - Session ${record.sessionNumber}`,
+        category: "User Activity",
+        priority: "high",
+        metadata: {
+          clientName: record.clientName,
+          recordId: req.params.id,
+          deletedBy: userInfo.userName,
+          deletedByRole: userInfo.userRole,
+          sessionNumber: record.sessionNumber,
+        },
+        relatedId: req.params.id,
+        relatedType: "record",
+      });
+    } catch (notificationError) {
+      console.error("⚠️ Admin notification creation failed (non-critical):", notificationError);
+    }
+
+    // ✅ Create notification for the counselor who deleted the record
+    try {
+      if (req.user?._id || req.user?.id) {
+        await createCounselorNotification({
+          counselorId: req.user._id || req.user.id,
+          counselorEmail: req.user.email,
+          title: "Record Deleted",
+          description: `You have successfully deleted the record for ${record.clientName} (Session ${record.sessionNumber}).`,
+          category: "System Alert",
+          priority: "medium",
+          metadata: {
+            clientName: record.clientName,
+            recordId: req.params.id,
+            sessionNumber: record.sessionNumber,
+            deletedAt: new Date().toISOString(),
+          },
+          relatedId: req.params.id,
+          relatedType: "record",
+        });
+      }
+    } catch (notificationError) {
+      console.error("⚠️ Counselor notification creation failed (non-critical):", notificationError);
+    }
+
+    res.status(200).json({ 
+      message: "Record deleted successfully",
+      deletedRecordId: req.params.id,
+    });
+  } catch (err) {
+    console.error("❌ Error deleting record:", err);
+    res.status(500).json({ message: "Failed to delete record", error: err.message });
   }
 };

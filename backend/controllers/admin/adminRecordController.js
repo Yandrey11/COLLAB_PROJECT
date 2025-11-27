@@ -1,5 +1,7 @@
 import Record from "../../models/Record.js";
+import User from "../../models/User.js";
 import { createNotification } from "./notificationController.js";
+import { createCounselorNotification, createNotificationForAllCounselors } from "../counselorNotificationController.js";
 
 // Helper to get user info from request
 const getUserInfo = (req) => {
@@ -99,13 +101,45 @@ export const getAllRecords = async (req, res) => {
 export const getRecordById = async (req, res) => {
   try {
     const { id } = req.params;
+    const RecordLock = (await import("../../models/RecordLock.js")).default;
+    
+    // Clean up expired locks first
+    const { cleanupExpiredLocks } = await import("./recordLockController.js");
+    await cleanupExpiredLocks();
+    
     const record = await Record.findById(id);
 
     if (!record) {
       return res.status(404).json({ message: "Record not found" });
     }
 
-    res.status(200).json(record);
+    // Get lock status
+    const lock = await RecordLock.findOne({
+      recordId: id,
+      isActive: true,
+    });
+
+    const recordObj = record.toObject();
+    
+    // Add lock metadata
+    if (lock && !lock.isExpired()) {
+      recordObj.lock = {
+        locked: true,
+        lockedBy: {
+          userId: lock.lockedBy.userId,
+          userName: lock.lockedBy.userName,
+          userRole: lock.lockedBy.userRole,
+        },
+        lockedAt: lock.lockedAt,
+        expiresAt: lock.expiresAt,
+      };
+    } else {
+      recordObj.lock = {
+        locked: false,
+      };
+    }
+
+    res.status(200).json(recordObj);
   } catch (error) {
     console.error("❌ Error fetching record:", error);
     res.status(500).json({ message: "Failed to fetch record", error: error.message });
@@ -150,9 +184,14 @@ export const updateRecord = async (req, res) => {
       record.auditTrail.modificationHistory.push(...changes);
     }
 
+    // Check if counselor was changed (record assigned/reassigned)
+    const counselorChanged = changes.find((c) => c.field === "counselor");
+    const newCounselorName = updateData.counselor || record.counselor;
+    const oldCounselorName = record.counselor;
+
     await record.save();
 
-    // Create notification
+    // Create notification for admins
     try {
       await createNotification({
         title: "Record Updated",
@@ -170,7 +209,75 @@ export const updateRecord = async (req, res) => {
         relatedType: "record",
       });
     } catch (notificationError) {
-      console.error("⚠️ Notification creation failed (non-critical):", notificationError);
+      console.error("⚠️ Admin notification creation failed (non-critical):", notificationError);
+    }
+
+    // Create notification for counselor if record was assigned/reassigned
+    if (counselorChanged && newCounselorName && newCounselorName !== oldCounselorName) {
+      try {
+        // Find counselor by name or email
+        const counselor = await User.findOne({
+          $or: [
+            { name: newCounselorName },
+            { email: newCounselorName },
+          ],
+          role: "counselor",
+        });
+
+        if (counselor) {
+          await createCounselorNotification({
+            counselorId: counselor._id,
+            counselorEmail: counselor.email,
+            title: "Record Assigned to You",
+            description: `Admin ${userInfo.userName} has assigned a record for client ${record.clientName} (Session ${record.sessionNumber}) to you.`,
+            category: "Assigned Record",
+            priority: "high",
+            metadata: {
+              clientName: record.clientName,
+              recordId: record._id.toString(),
+              sessionNumber: record.sessionNumber,
+              assignedBy: userInfo.userName,
+            },
+            relatedId: record._id,
+            relatedType: "record",
+          });
+        }
+      } catch (notificationError) {
+        console.error("⚠️ Counselor notification creation failed (non-critical):", notificationError);
+      }
+    } else if (!counselorChanged && newCounselorName) {
+      // Record was updated but counselor didn't change - notify the counselor
+      try {
+        const counselor = await User.findOne({
+          $or: [
+            { name: newCounselorName },
+            { email: newCounselorName },
+          ],
+          role: "counselor",
+        });
+
+        if (counselor) {
+          await createCounselorNotification({
+            counselorId: counselor._id,
+            counselorEmail: counselor.email,
+            title: "Record Updated",
+            description: `Your record for client ${record.clientName} (Session ${record.sessionNumber}) has been updated by admin ${userInfo.userName}.`,
+            category: "Updated Record",
+            priority: "medium",
+            metadata: {
+              clientName: record.clientName,
+              recordId: record._id.toString(),
+              sessionNumber: record.sessionNumber,
+              updatedBy: userInfo.userName,
+              updatedFields: changes.map((c) => c.field),
+            },
+            relatedId: record._id,
+            relatedType: "record",
+          });
+        }
+      } catch (notificationError) {
+        console.error("⚠️ Counselor notification creation failed (non-critical):", notificationError);
+      }
     }
 
     res.status(200).json({

@@ -1,4 +1,5 @@
 import User from "../models/user.js";
+import GoogleUser from "../models/GoogleUser.js";
 import jwt from "jsonwebtoken";
 import { createSession } from "./admin/sessionController.js";
 
@@ -10,9 +11,19 @@ export const login = async (req, res) => {
       return res.status(400).json({ message: "Email and password required" });
     }
 
-    const user = await User.findOne({ email });
+    // ✅ Check if user exists in User collection (for email/password login)
+    let user = await User.findOne({ email });
 
+    // ✅ If not found in User collection, check if they're a Google-only user
     if (!user) {
+      const googleUser = await GoogleUser.findOne({ email });
+      if (googleUser) {
+        // User exists but only in GoogleUser (no password set)
+        return res.status(400).json({ 
+          message: "This account was created with Google. Please sign in with Google instead." 
+        });
+      }
+      // User doesn't exist in either collection
       return res.status(400).json({ message: "Invalid credentials" });
     }
 
