@@ -12,11 +12,16 @@ import AdminLogin from "./pages/Admin/AdminLogin";
 import AdminDashboard from "./pages/Admin/AdminDashboard";
 import AdminSignup from "./pages/Admin/AdminSignup";
 import UserManagement from "./pages/Admin/UserManagement";
-import NotificationCenter from "./pages/Admin/NotificationCenter";
+import AdminNotificationCenter from "./pages/Admin/NotificationCenter";
 import AdminRecordManagement from "./pages/Admin/AdminRecordManagement";
+import AdminProfilePage from "./pages/Admin/AdminProfilePage";
+import AdminSettingsPage from "./pages/Admin/AdminSettingsPage";
 
 import RecordsPage from "./pages/RecordsPage";
 import ReportsPage from "./pages/ReportsPage";
+import NotificationCenter from "./pages/NotificationCenter";
+import ProfilePage from "./pages/ProfilePage";
+import SettingsPage from "./pages/SettingsPage";
 import RouteLoadingBar from "./components/RouteLoadingBar";
 import "./App.css";
 
@@ -33,7 +38,10 @@ function App() {
         <Route path="/set-password" element={<SetPassword />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/records" element={<RecordsPage />} />
-        <Route path="/reports" element={<ReportsPage />} /> 
+        <Route path="/reports" element={<ReportsPage />} />
+        <Route path="/notifications" element={<NotificationCenter />} />
+        <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/settings" element={<SettingsPage />} />
 
 
         {/* ✅ Admin routes */}
@@ -41,8 +49,10 @@ function App() {
         <Route path="/adminsignup" element={<AdminSignup />} />
         <Route path="/AdminDashboard" element={<AdminDashboard />} />
         <Route path="/admin/users" element={<UserManagement />} />
-        <Route path="/admin/notifications" element={<NotificationCenter />} />
+        <Route path="/admin/notifications" element={<AdminNotificationCenter />} />
         <Route path="/admin/records" element={<AdminRecordManagement />} />
+        <Route path="/admin/profile" element={<AdminProfilePage />} />
+        <Route path="/admin/settings" element={<AdminSettingsPage />} />
       </Routes>
     </Router>
   );
