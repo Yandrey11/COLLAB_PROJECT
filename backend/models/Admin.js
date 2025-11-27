@@ -37,9 +37,16 @@ const adminSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// ✅ Hash password before saving
+// ✅ Hash password before saving (only if not already hashed)
 adminSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();
+
+  // Safeguard: Check if password is already hashed (starts with bcrypt hash prefix)
+  // This prevents double-hashing if an already-hashed password is accidentally passed
+  if (this.password && (this.password.startsWith("$2a$") || this.password.startsWith("$2b$") || this.password.startsWith("$2y$"))) {
+    console.warn("⚠️ Password appears to be already hashed, skipping hash operation");
+    return next();
+  }
 
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
