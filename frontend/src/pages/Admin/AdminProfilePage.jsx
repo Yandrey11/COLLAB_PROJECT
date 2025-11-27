@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Swal from "sweetalert2";
 import AdminSidebar from "../../components/AdminSidebar";
 import { initializeTheme } from "../../utils/themeUtils";
+import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 
 const API_URL = `${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api/admin/profile`;
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
@@ -37,6 +38,7 @@ const getImageUrl = (imagePath) => {
 };
 
 export default function AdminProfilePage() {
+  useDocumentTitle("Admin Profile");
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);

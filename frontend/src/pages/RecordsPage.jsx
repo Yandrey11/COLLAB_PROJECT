@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 import { NotificationBadgeBadge } from "../components/NotificationBadge";
 import { initializeTheme } from "../utils/themeUtils";
+import { useDocumentTitle } from "../hooks/useDocumentTitle";
 
 const API_URL = `${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api/records`;
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
@@ -25,6 +26,7 @@ const getImageUrl = (imagePath) => {
 };
 
 const RecordsPage = () => {
+  useDocumentTitle("Counseling Records");
   // Add responsive styles
   useEffect(() => {
     const style = document.createElement("style");
@@ -1127,131 +1129,49 @@ const RecordsPage = () => {
                   }}
                 >
                   <div>
-                    <label
-                      style={{
-                        display: "block",
-                        fontSize: 13,
-                        fontWeight: 500,
-                        marginBottom: 6,
-                        color: "#374151",
-                      }}
-                    >
+                    <label className="block text-sm font-medium mb-1.5 text-gray-700 dark:text-gray-300">
                       Client Name *
                     </label>
                     <input
-                    type="text"
+                      type="text"
                       placeholder="Enter client name"
-                    value={newRecord.clientName}
-                    onChange={(e) =>
-                      setNewRecord({
-                        ...newRecord,
-                        clientName: e.target.value,
-                      })
-                    }
-                    style={{
-                        width: "100%",
-                        border: "1px solid #e6e9ef",
-                        background: "#fff",
-                        padding: "10px 12px",
-                        borderRadius: 10,
-                        color: "#111827",
-                        fontSize: 14,
-                        transition: "all 0.2s",
-                        boxSizing: "border-box",
-                    }}
-                    onFocus={(e) => {
-                        e.currentTarget.style.outline = "2px solid #4f46e5";
-                        e.currentTarget.style.outlineOffset = "2px";
-                        e.currentTarget.style.borderColor = "#4f46e5";
-                    }}
-                    onBlur={(e) => {
-                      e.currentTarget.style.outline = "none";
-                        e.currentTarget.style.borderColor = "#e6e9ef";
-                      }}
+                      value={newRecord.clientName}
+                      onChange={(e) =>
+                        setNewRecord({
+                          ...newRecord,
+                          clientName: e.target.value,
+                        })
+                      }
+                      className="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-indigo-500 dark:focus:border-indigo-400 transition-all"
                     />
                   </div>
                   <div>
-                    <label
-                      style={{
-                        display: "block",
-                        fontSize: 13,
-                        fontWeight: 500,
-                        marginBottom: 6,
-                        color: "#374151",
-                      }}
-                    >
+                    <label className="block text-sm font-medium mb-1.5 text-gray-700 dark:text-gray-300">
                       Date
                     </label>
                     <input
-                    type="date"
-                    value={newRecord.date}
-                    onChange={(e) =>
-                      setNewRecord({ ...newRecord, date: e.target.value })
-                    }
-                    style={{
-                        width: "100%",
-                        border: "1px solid #e6e9ef",
-                        background: "#fff",
-                        padding: "10px 12px",
-                        borderRadius: 10,
-                        color: "#111827",
-                        fontSize: 14,
-                        transition: "all 0.2s",
-                        boxSizing: "border-box",
-                    }}
-                    onFocus={(e) => {
-                        e.currentTarget.style.outline = "2px solid #4f46e5";
-                        e.currentTarget.style.outlineOffset = "2px";
-                        e.currentTarget.style.borderColor = "#4f46e5";
-                    }}
-                    onBlur={(e) => {
-                      e.currentTarget.style.outline = "none";
-                        e.currentTarget.style.borderColor = "#e6e9ef";
-                      }}
+                      type="date"
+                      value={newRecord.date}
+                      onChange={(e) =>
+                        setNewRecord({ ...newRecord, date: e.target.value })
+                      }
+                      className="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-indigo-500 dark:focus:border-indigo-400 transition-all"
                     />
                   </div>
                   <div>
-                    <label
-                      style={{
-                        display: "block",
-                        fontSize: 13,
-                        fontWeight: 500,
-                        marginBottom: 6,
-                        color: "#374151",
-                      }}
-                    >
+                    <label className="block text-sm font-medium mb-1.5 text-gray-700 dark:text-gray-300">
                       Session Type *
                     </label>
                     <select
-                    value={newRecord.sessionType}
-                    onChange={(e) =>
-                      setNewRecord({
-                        ...newRecord,
-                        sessionType: e.target.value,
-                      })
-                    }
-                    style={{
-                        width: "100%",
-                        border: "1px solid #e6e9ef",
-                        background: "#fff",
-                        padding: "10px 12px",
-                        borderRadius: 10,
-                        color: "#111827",
-                        fontSize: 14,
-                        transition: "all 0.2s",
-                        boxSizing: "border-box",
-                        cursor: "pointer",
-                    }}
-                    onFocus={(e) => {
-                        e.currentTarget.style.outline = "2px solid #4f46e5";
-                        e.currentTarget.style.outlineOffset = "2px";
-                        e.currentTarget.style.borderColor = "#4f46e5";
-                    }}
-                    onBlur={(e) => {
-                      e.currentTarget.style.outline = "none";
-                        e.currentTarget.style.borderColor = "#e6e9ef";
-                    }}
-                  >
+                      value={newRecord.sessionType}
+                      onChange={(e) =>
+                        setNewRecord({
+                          ...newRecord,
+                          sessionType: e.target.value,
+                        })
+                      }
+                      className="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-indigo-500 dark:focus:border-indigo-400 transition-all cursor-pointer"
+                    >
                     <option value="">Select Session Type</option>
                     <option value="Individual">Individual</option>
                     <option value="Group">Group</option>
@@ -1260,44 +1180,16 @@ const RecordsPage = () => {
                     </select>
                   </div>
                   <div>
-                    <label
-                      style={{
-                        display: "block",
-                        fontSize: 13,
-                        fontWeight: 500,
-                        marginBottom: 6,
-                        color: "#374151",
-                      }}
-                    >
+                    <label className="block text-sm font-medium mb-1.5 text-gray-700 dark:text-gray-300">
                       Status
                     </label>
                     <select
-                    value={newRecord.status}
-                    onChange={(e) =>
-                      setNewRecord({ ...newRecord, status: e.target.value })
-                    }
-                    style={{
-                        width: "100%",
-                        border: "1px solid #e6e9ef",
-                        background: "#fff",
-                        padding: "10px 12px",
-                        borderRadius: 10,
-                        color: "#111827",
-                        fontSize: 14,
-                        transition: "all 0.2s",
-                        boxSizing: "border-box",
-                        cursor: "pointer",
-                    }}
-                    onFocus={(e) => {
-                        e.currentTarget.style.outline = "2px solid #4f46e5";
-                        e.currentTarget.style.outlineOffset = "2px";
-                        e.currentTarget.style.borderColor = "#4f46e5";
-                    }}
-                    onBlur={(e) => {
-                      e.currentTarget.style.outline = "none";
-                        e.currentTarget.style.borderColor = "#e6e9ef";
-                    }}
-                  >
+                      value={newRecord.status}
+                      onChange={(e) =>
+                        setNewRecord({ ...newRecord, status: e.target.value })
+                      }
+                      className="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-indigo-500 dark:focus:border-indigo-400 transition-all cursor-pointer"
+                    >
                     <option value="Ongoing">Ongoing</option>
                     <option value="Completed">Completed</option>
                     <option value="Referred">Referred</option>
@@ -1306,90 +1198,32 @@ const RecordsPage = () => {
                 </div>
 
                 <div style={{ marginBottom: 16 }}>
-                  <label
-                    style={{
-                      display: "block",
-                      fontSize: 13,
-                      fontWeight: 500,
-                      marginBottom: 6,
-                      color: "#374151",
-                    }}
-                  >
+                  <label className="block text-sm font-medium mb-1.5 text-gray-700 dark:text-gray-300">
                     Session Notes
                   </label>
                   <textarea
                     placeholder="Enter session notes..."
-                  value={newRecord.notes}
-                  onChange={(e) =>
-                    setNewRecord({ ...newRecord, notes: e.target.value })
-                  }
-                  rows="3"
-                  style={{
-                    width: "100%",
-                      border: "1px solid #e6e9ef",
-                      background: "#fff",
-                      padding: "10px 12px",
-                      borderRadius: 10,
-                      color: "#111827",
-                      fontSize: 14,
-                      transition: "all 0.2s",
-                      boxSizing: "border-box",
-                      resize: "vertical",
-                      fontFamily: "inherit",
-                  }}
-                  onFocus={(e) => {
-                      e.currentTarget.style.outline = "2px solid #4f46e5";
-                      e.currentTarget.style.outlineOffset = "2px";
-                      e.currentTarget.style.borderColor = "#4f46e5";
-                  }}
-                  onBlur={(e) => {
-                    e.currentTarget.style.outline = "none";
-                      e.currentTarget.style.borderColor = "#e6e9ef";
-                    }}
+                    value={newRecord.notes}
+                    onChange={(e) =>
+                      setNewRecord({ ...newRecord, notes: e.target.value })
+                    }
+                    rows="3"
+                    className="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-indigo-500 dark:focus:border-indigo-400 transition-all resize-vertical font-sans"
                   />
                 </div>
 
                 <div style={{ marginBottom: 20 }}>
-                  <label
-                    style={{
-                      display: "block",
-                      fontSize: 13,
-                      fontWeight: 500,
-                      marginBottom: 6,
-                      color: "#374151",
-                    }}
-                  >
+                  <label className="block text-sm font-medium mb-1.5 text-gray-700 dark:text-gray-300">
                     Outcomes
                   </label>
                   <textarea
                     placeholder="Enter outcomes..."
-                  value={newRecord.outcomes}
-                  onChange={(e) =>
-                    setNewRecord({ ...newRecord, outcomes: e.target.value })
-                  }
-                  rows="3"
-                  style={{
-                    width: "100%",
-                      border: "1px solid #e6e9ef",
-                      background: "#fff",
-                      padding: "10px 12px",
-                      borderRadius: 10,
-                      color: "#111827",
-                      fontSize: 14,
-                      transition: "all 0.2s",
-                      boxSizing: "border-box",
-                      resize: "vertical",
-                      fontFamily: "inherit",
-                  }}
-                  onFocus={(e) => {
-                      e.currentTarget.style.outline = "2px solid #4f46e5";
-                      e.currentTarget.style.outlineOffset = "2px";
-                      e.currentTarget.style.borderColor = "#4f46e5";
-                  }}
-                  onBlur={(e) => {
-                    e.currentTarget.style.outline = "none";
-                      e.currentTarget.style.borderColor = "#e6e9ef";
-                  }}
+                    value={newRecord.outcomes}
+                    onChange={(e) =>
+                      setNewRecord({ ...newRecord, outcomes: e.target.value })
+                    }
+                    rows="3"
+                    className="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-indigo-500 dark:focus:border-indigo-400 transition-all resize-vertical font-sans"
                   />
                 </div>
 
@@ -1404,16 +1238,7 @@ const RecordsPage = () => {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => setShowForm(false)}
-                    style={{
-                      padding: "10px 20px",
-                      borderRadius: 10,
-                      border: "1px solid #e6e9ef",
-                      background: "#fff",
-                      cursor: "pointer",
-                      color: "#111827",
-                      fontWeight: 600,
-                      fontSize: 14,
-                    }}
+                    className="px-5 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 font-semibold text-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors cursor-pointer"
                   >
                     Cancel
                   </motion.button>
@@ -1498,117 +1323,34 @@ const RecordsPage = () => {
                 }}
                 className="desktop-table"
               >
-            <table
-              style={{
-                width: "100%",
-                borderCollapse: "collapse",
-                    color: "#111827",
-                  }}
-                >
-                  <thead
-                    style={{
-                      background: "#f8fafc",
-                      borderBottom: "2px solid #e6e9ef",
-                    }}
-                  >
+            <table className="w-full border-collapse text-gray-900 dark:text-gray-100">
+                  <thead className="bg-gray-50 dark:bg-gray-700/50 border-b-2 border-gray-200 dark:border-gray-600">
                     <tr>
-                      <th
-                        style={{
-                          padding: "12px",
-                          textAlign: "left",
-                          fontWeight: 600,
-                          fontSize: 13,
-                          color: "#374151",
-                        }}
-                      >
+                      <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                         Session #
                       </th>
-                      <th
-                        style={{
-                          padding: "12px",
-                          textAlign: "left",
-                          fontWeight: 600,
-                          fontSize: 13,
-                          color: "#374151",
-                        }}
-                      >
+                      <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                         Client Name
                       </th>
-                      <th
-                        style={{
-                          padding: "12px",
-                          textAlign: "left",
-                          fontWeight: 600,
-                          fontSize: 13,
-                          color: "#374151",
-                        }}
-                      >
+                      <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                         Date
                       </th>
-                      <th
-                        style={{
-                          padding: "12px",
-                          textAlign: "left",
-                          fontWeight: 600,
-                          fontSize: 13,
-                          color: "#374151",
-                        }}
-                      >
+                      <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                         Session Type
                       </th>
-                      <th
-                        style={{
-                          padding: "12px",
-                          textAlign: "left",
-                          fontWeight: 600,
-                          fontSize: 13,
-                          color: "#374151",
-                        }}
-                      >
+                      <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                         Status
                       </th>
-                      <th
-                        style={{
-                          padding: "12px",
-                          textAlign: "left",
-                          fontWeight: 600,
-                          fontSize: 13,
-                          color: "#374151",
-                        }}
-                      >
+                      <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                         Counselor
                       </th>
-                      <th
-                        style={{
-                          padding: "12px",
-                          textAlign: "left",
-                          fontWeight: 600,
-                          fontSize: 13,
-                          color: "#374151",
-                        }}
-                      >
+                      <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                         Drive Link
                       </th>
-                      <th
-                        style={{
-                          padding: "12px",
-                          textAlign: "left",
-                          fontWeight: 600,
-                          fontSize: 13,
-                          color: "#374151",
-                        }}
-                      >
+                      <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                         Lock Status
                       </th>
-                      <th
-                        style={{
-                          padding: "12px",
-                          textAlign: "center",
-                          fontWeight: 600,
-                          fontSize: 13,
-                          color: "#374151",
-                        }}
-                      >
+                      <th className="px-3 py-3 text-center text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                         Actions
                       </th>
                     </tr>
@@ -1622,101 +1364,46 @@ const RecordsPage = () => {
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0 }}
                           transition={{ delay: index * 0.03 }}
-                          style={{
-                            borderBottom: "1px solid #e6e9ef",
-                            transition: "all 0.2s",
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.background = "#f8fafc";
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.background = "transparent";
-                          }}
+                          className="border-b border-gray-200 dark:border-gray-700 transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50"
                         >
-                          <td
-                            style={{
-                              padding: "12px",
-                              fontWeight: 600,
-                              fontSize: 14,
-                              color: "#4f46e5",
-                            }}
-                          >
+                          <td className="px-3 py-3 text-sm font-semibold text-indigo-600 dark:text-indigo-400">
                             #{record.sessionNumber || 1}
                           </td>
-                          <td
-                            style={{
-                              padding: "12px",
-                              fontWeight: 500,
-                              fontSize: 14,
-                            }}
-                          >
+                          <td className="px-3 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">
                             {record.clientName}
                           </td>
-                          <td style={{ padding: "12px", fontSize: 14 }}>
+                          <td className="px-3 py-3 text-sm text-gray-700 dark:text-gray-300">
                             {record.date
                               ? new Date(record.date).toLocaleDateString()
                               : "-"}
                           </td>
-                          <td style={{ padding: "12px" }}>
-                            <span
-                              style={{
-                                padding: "4px 10px",
-                                background: "rgba(79, 70, 229, 0.1)",
-                                color: "#4f46e5",
-                                borderRadius: 8,
-                                fontSize: 12,
-                                fontWeight: 600,
-                                display: "inline-block",
-                              }}
-                            >
+                          <td className="px-3 py-3">
+                            <span className="px-2.5 py-1 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-lg text-xs font-semibold inline-block">
                               {record.sessionType}
                             </span>
                           </td>
-                          <td style={{ padding: "12px" }}>
-                            <span
-                              style={{
-                                padding: "4px 10px",
-                                borderRadius: 8,
-                                fontSize: 12,
-                                fontWeight: 600,
-                                display: "inline-block",
-                                ...(record.status === "Completed"
-                                  ? {
-                                      background: "rgba(16, 185, 129, 0.1)",
-                                      color: "#059669",
-                                    }
-                                  : record.status === "Ongoing"
-                                  ? {
-                                      background: "rgba(245, 158, 11, 0.1)",
-                                      color: "#d97706",
-                                    }
-                                  : {
-                                      background: "rgba(168, 85, 247, 0.1)",
-                                      color: "#9333ea",
-                                    }),
-                              }}
-                            >
+                          <td className="px-3 py-3">
+                            <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold inline-block ${
+                              record.status === "Completed"
+                                ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
+                                : record.status === "Ongoing"
+                                ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400"
+                                : "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400"
+                            }`}>
                               {record.status}
                             </span>
                           </td>
-                          <td style={{ padding: "12px", fontSize: 14 }}>
+                          <td className="px-3 py-3 text-sm text-gray-700 dark:text-gray-300">
                             {record.counselor && record.counselor !== "Unknown User" && record.counselor !== "Unknown Counselor"
                               ? record.counselor
                               : user?.name || user?.email || record.counselor || "—"}
                           </td>
-                          <td style={{ padding: "12px" }}>
+                          <td className="px-3 py-3">
                             {(() => {
                               const lockStatus = lockStatuses[record._id];
                               if (!lockStatus) {
                                 return (
-                                  <span style={{
-                                    padding: "4px 8px",
-                                    borderRadius: 6,
-                                    fontSize: 11,
-                                    fontWeight: 500,
-                                    background: "#f3f4f6",
-                                    color: "#6b7280",
-                                  }}>
+                                  <span className="px-2 py-1 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
                                     Loading...
                                   </span>
                                 );
@@ -1724,66 +1411,34 @@ const RecordsPage = () => {
                               if (lockStatus.locked) {
                                 const isOwner = lockStatus.isLockOwner;
                                 return (
-                                  <span style={{
-                                    padding: "4px 8px",
-                                    borderRadius: 6,
-                                    fontSize: 11,
-                                    fontWeight: 600,
-                                    background: isOwner
-                                      ? "rgba(16, 185, 129, 0.1)"
-                                      : "rgba(239, 68, 68, 0.1)",
-                                    color: isOwner
-                                      ? "#059669"
-                                      : "#dc2626",
-                                  }}>
+                                  <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                                    isOwner
+                                      ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
+                                      : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
+                                  }`}>
                                     🔒 {lockStatus.lockedBy?.userRole === "admin" ? "Admin" : lockStatus.lockedBy?.userName || "Locked"}
                                   </span>
                                 );
                               }
                               return (
-                                <span style={{
-                                  padding: "4px 8px",
-                                  borderRadius: 6,
-                                  fontSize: 11,
-                                  fontWeight: 500,
-                                  background: "rgba(16, 185, 129, 0.1)",
-                                  color: "#059669",
-                                }}>
+                                <span className="px-2 py-1 rounded text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
                                   🔓 Unlocked
                                 </span>
                               );
                             })()}
                           </td>
-                          <td style={{ padding: "12px" }}>
+                          <td className="px-3 py-3">
                             {record.driveLink ? (
                               <a
                                 href={record.driveLink}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                style={{
-                                  color: "#4f46e5",
-                                  textDecoration: "none",
-                                  fontSize: 14,
-                                  fontWeight: 500,
-                                }}
-                                onMouseEnter={(e) => {
-                                  e.currentTarget.style.textDecoration =
-                                    "underline";
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.textDecoration = "none";
-                                }}
+                                className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 hover:underline text-sm font-medium transition-colors"
                               >
                                 View File
                               </a>
                             ) : (
-                              <span
-                                style={{
-                                  color: "#9ca3af",
-                                  fontSize: 14,
-                                  fontStyle: "italic",
-                                }}
-                              >
+                              <span className="text-gray-400 dark:text-gray-500 text-sm italic">
                                 No file
                               </span>
                             )}
@@ -1925,32 +1580,12 @@ const RecordsPage = () => {
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0 }}
                       transition={{ delay: index * 0.03 }}
-                      style={{
-                        background: "#fff",
-                        border: "1px solid #e6e9ef",
-                        borderRadius: 12,
-                        padding: 16,
-                        boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
-                      }}
+                      className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-4 shadow-sm"
                     >
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "flex-start",
-                          marginBottom: 12,
-                        }}
-                      >
-                        <div style={{ flex: 1 }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                            <h3
-                              style={{
-                                margin: 0,
-                                fontSize: 16,
-                                fontWeight: 600,
-                                color: "#111827",
-                              }}
-                            >
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="m-0 text-base font-semibold text-gray-900 dark:text-gray-100">
                               {record.clientName}
                             </h3>
                             <span
@@ -1966,29 +1601,14 @@ const RecordsPage = () => {
                               Session #{record.sessionNumber || 1}
                             </span>
                           </div>
-                          <p
-                            style={{
-                              margin: 0,
-                              fontSize: 13,
-                              color: "#6b7280",
-                            }}
-                          >
+                          <p className="m-0 text-sm text-gray-600 dark:text-gray-400">
                             {record.date
                               ? new Date(record.date).toLocaleDateString()
                               : "No date"}
                           </p>
                         </div>
-                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                          <span
-                            style={{
-                              padding: "4px 10px",
-                              background: "rgba(79, 70, 229, 0.1)",
-                              color: "#4f46e5",
-                              borderRadius: 8,
-                              fontSize: 11,
-                              fontWeight: 600,
-                            }}
-                          >
+                        <div className="flex gap-1.5 flex-wrap">
+                          <span className="px-2.5 py-1 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-lg text-xs font-semibold">
                             {record.sessionType}
                           </span>
                           <span
@@ -2020,18 +1640,11 @@ const RecordsPage = () => {
                             if (lockStatus?.locked) {
                               const isOwner = lockStatus.isLockOwner;
                               return (
-                                <span style={{
-                                  padding: "4px 10px",
-                                  borderRadius: 8,
-                                  fontSize: 11,
-                                  fontWeight: 600,
-                                  background: isOwner
-                                    ? "rgba(16, 185, 129, 0.1)"
-                                    : "rgba(239, 68, 68, 0.1)",
-                                  color: isOwner
-                                    ? "#059669"
-                                    : "#dc2626",
-                                }}>
+                                <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold ${
+                                  isOwner
+                                    ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
+                                    : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
+                                }`}>
                                   🔒 {lockStatus.lockedBy?.userRole === "admin" ? "Locked by Admin" : `Locked by ${lockStatus.lockedBy?.userName || "User"}`}
                                 </span>
                               );
@@ -2040,42 +1653,25 @@ const RecordsPage = () => {
                           })()}
                         </div>
                       </div>
-                      <div
-                        style={{
-                          fontSize: 13,
-                          color: "#6b7280",
-                          marginBottom: 12,
-                        }}
-                      >
-                        <strong>Counselor:</strong>{" "}
+                      <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                        <strong className="text-gray-900 dark:text-gray-100">Counselor:</strong>{" "}
                         {record.counselor && record.counselor !== "Unknown User" && record.counselor !== "Unknown Counselor"
                           ? record.counselor
                           : user?.name || user?.email || record.counselor || "—"}
                       </div>
                       {record.driveLink && (
-                        <div style={{ marginBottom: 12 }}>
+                        <div className="mb-3">
                           <a
                             href={record.driveLink}
                             target="_blank"
                             rel="noopener noreferrer"
-                            style={{
-                              color: "#4f46e5",
-                              textDecoration: "none",
-                              fontSize: 13,
-                              fontWeight: 500,
-                            }}
+                            className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 hover:underline text-sm font-medium transition-colors"
                           >
                             📎 View Drive File
                           </a>
                         </div>
                       )}
-                      <div
-                        style={{
-                          display: "flex",
-                          gap: 8,
-                          marginTop: 12,
-                        }}
-                      >
+                      <div className="flex gap-2 mt-3">
                         {(() => {
                           const lockStatus = lockStatuses[record._id];
                           const isLocked = lockStatus?.locked;
@@ -2423,15 +2019,7 @@ const RecordsPage = () => {
                   return (
                     <div>
                       <div style={{ marginBottom: 16 }}>
-                        <label
-                          style={{
-                            display: "block",
-                            fontSize: 13,
-                            fontWeight: 500,
-                            marginBottom: 6,
-                            color: "#374151",
-                          }}
-                        >
+                        <label className="block text-sm font-medium mb-1.5 text-gray-700 dark:text-gray-300">
                           Session Type
                         </label>
                         <input
@@ -2444,42 +2032,16 @@ const RecordsPage = () => {
                             })
                           }
                           disabled={isReadOnly}
-                    style={{
-                      width: "100%",
-                      border: "1px solid #e6e9ef",
-                      background: isReadOnly ? "#f3f4f6" : "#fff",
-                      padding: "10px 12px",
-                      borderRadius: 10,
-                      color: isReadOnly ? "#9ca3af" : "#111827",
-                      fontSize: 14,
-                      transition: "all 0.2s",
-                      boxSizing: "border-box",
-                      cursor: isReadOnly ? "not-allowed" : "text",
-                    }}
-                    onFocus={(e) => {
-                      if (!isReadOnly) {
-                        e.currentTarget.style.outline = "2px solid #4f46e5";
-                        e.currentTarget.style.outlineOffset = "2px";
-                        e.currentTarget.style.borderColor = "#4f46e5";
-                      }
-                    }}
-                    onBlur={(e) => {
-                      e.currentTarget.style.outline = "none";
-                      e.currentTarget.style.borderColor = "#e6e9ef";
-                    }}
-                  />
+                          className={`w-full px-3 py-2.5 rounded-lg border text-sm transition-all ${
+                            isReadOnly
+                              ? "border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed"
+                              : "border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-indigo-500 dark:focus:border-indigo-400 cursor-text"
+                          }`}
+                        />
                 </div>
 
                 <div style={{ marginBottom: 16 }}>
-                  <label
-                    style={{
-                      display: "block",
-                      fontSize: 13,
-                      fontWeight: 500,
-                      marginBottom: 6,
-                      color: "#374151",
-                    }}
-                  >
+                  <label className="block text-sm font-medium mb-1.5 text-gray-700 dark:text-gray-300">
                     Status
                   </label>
                   <select
@@ -2491,29 +2053,11 @@ const RecordsPage = () => {
                       })
                     }
                     disabled={isReadOnly}
-                    style={{
-                      width: "100%",
-                      border: "1px solid #e6e9ef",
-                      background: isReadOnly ? "#f3f4f6" : "#fff",
-                      padding: "10px 12px",
-                      borderRadius: 10,
-                      color: isReadOnly ? "#9ca3af" : "#111827",
-                      fontSize: 14,
-                      transition: "all 0.2s",
-                      boxSizing: "border-box",
-                      cursor: isReadOnly ? "not-allowed" : "pointer",
-                    }}
-                    onFocus={(e) => {
-                      if (!isReadOnly) {
-                        e.currentTarget.style.outline = "2px solid #4f46e5";
-                        e.currentTarget.style.outlineOffset = "2px";
-                        e.currentTarget.style.borderColor = "#4f46e5";
-                      }
-                    }}
-                    onBlur={(e) => {
-                      e.currentTarget.style.outline = "none";
-                      e.currentTarget.style.borderColor = "#e6e9ef";
-                    }}
+                    className={`w-full px-3 py-2.5 rounded-lg border text-sm transition-all ${
+                      isReadOnly
+                        ? "border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed"
+                        : "border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-indigo-500 dark:focus:border-indigo-400 cursor-pointer"
+                    }`}
                   >
                     <option value="Ongoing">Ongoing</option>
                     <option value="Completed">Completed</option>
@@ -2522,15 +2066,7 @@ const RecordsPage = () => {
                 </div>
 
                 <div style={{ marginBottom: 16 }}>
-                  <label
-                    style={{
-                      display: "block",
-                      fontSize: 13,
-                      fontWeight: 500,
-                      marginBottom: 6,
-                      color: "#374151",
-                    }}
-                  >
+                  <label className="block text-sm font-medium mb-1.5 text-gray-700 dark:text-gray-300">
                     Notes
                   </label>
                   <textarea
@@ -2543,45 +2079,17 @@ const RecordsPage = () => {
                     }
                     disabled={isReadOnly}
                     rows="3"
-                    style={{
-                      width: "100%",
-                      border: "1px solid #e6e9ef",
-                      background: isReadOnly ? "#f3f4f6" : "#fff",
-                      padding: "10px 12px",
-                      borderRadius: 10,
-                      color: isReadOnly ? "#9ca3af" : "#111827",
-                      fontSize: 14,
-                      transition: "all 0.2s",
-                      boxSizing: "border-box",
-                      resize: isReadOnly ? "none" : "vertical",
-                      fontFamily: "inherit",
-                      cursor: isReadOnly ? "not-allowed" : "text",
-                    }}
                     placeholder={isReadOnly ? "Record is locked. Please unlock it first." : ""}
-                    onFocus={(e) => {
-                      if (!isReadOnly) {
-                        e.currentTarget.style.outline = "2px solid #4f46e5";
-                        e.currentTarget.style.outlineOffset = "2px";
-                        e.currentTarget.style.borderColor = "#4f46e5";
-                      }
-                    }}
-                    onBlur={(e) => {
-                      e.currentTarget.style.outline = "none";
-                      e.currentTarget.style.borderColor = "#e6e9ef";
-                    }}
+                    className={`w-full px-3 py-2.5 rounded-lg border text-sm transition-all font-sans ${
+                      isReadOnly
+                        ? "border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed resize-none"
+                        : "border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-indigo-500 dark:focus:border-indigo-400 cursor-text resize-vertical"
+                    }`}
                   />
                 </div>
 
                 <div style={{ marginBottom: 20 }}>
-                  <label
-                    style={{
-                      display: "block",
-                      fontSize: 13,
-                      fontWeight: 500,
-                      marginBottom: 6,
-                      color: "#374151",
-                    }}
-                  >
+                  <label className="block text-sm font-medium mb-1.5 text-gray-700 dark:text-gray-300">
                     Outcomes
                   </label>
                   <textarea
@@ -2594,32 +2102,12 @@ const RecordsPage = () => {
                     }
                     disabled={isReadOnly}
                     rows="3"
-                    style={{
-                      width: "100%",
-                      border: "1px solid #e6e9ef",
-                      background: isReadOnly ? "#f3f4f6" : "#fff",
-                      padding: "10px 12px",
-                      borderRadius: 10,
-                      color: isReadOnly ? "#9ca3af" : "#111827",
-                      fontSize: 14,
-                      transition: "all 0.2s",
-                      boxSizing: "border-box",
-                      resize: isReadOnly ? "none" : "vertical",
-                      fontFamily: "inherit",
-                      cursor: isReadOnly ? "not-allowed" : "text",
-                    }}
                     placeholder={isReadOnly ? "Record is locked. Please unlock it first." : ""}
-                    onFocus={(e) => {
-                      if (!isReadOnly) {
-                        e.currentTarget.style.outline = "2px solid #4f46e5";
-                        e.currentTarget.style.outlineOffset = "2px";
-                        e.currentTarget.style.borderColor = "#4f46e5";
-                      }
-                    }}
-                    onBlur={(e) => {
-                      e.currentTarget.style.outline = "none";
-                      e.currentTarget.style.borderColor = "#e6e9ef";
-                    }}
+                    className={`w-full px-3 py-2.5 rounded-lg border text-sm transition-all font-sans ${
+                      isReadOnly
+                        ? "border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed resize-none"
+                        : "border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-indigo-500 dark:focus:border-indigo-400 cursor-text resize-vertical"
+                    }`}
                   />
                 </div>
 
@@ -2653,16 +2141,7 @@ const RecordsPage = () => {
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       onClick={() => setSelectedRecord(null)}
-                      style={{
-                        padding: "10px 20px",
-                        borderRadius: 10,
-                        border: "1px solid #e6e9ef",
-                        background: "#fff",
-                        cursor: "pointer",
-                        color: "#111827",
-                        fontWeight: 600,
-                        fontSize: 14,
-                      }}
+                      className="px-5 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 font-semibold text-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors cursor-pointer"
                     >
                       Cancel
                     </motion.button>

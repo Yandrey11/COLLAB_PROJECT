@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import Swal from "sweetalert2";
 import { NotificationBadgeBadge } from "../components/NotificationBadge";
 import CalendarView from "../components/CalendarView";
 import { initializeTheme } from "../utils/themeUtils";
+import { useDocumentTitle } from "../hooks/useDocumentTitle";
 
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
@@ -25,6 +26,7 @@ const getImageUrl = (imagePath) => {
 };
 
 export default function Dashboard() {
+  useDocumentTitle("Dashboard");
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);

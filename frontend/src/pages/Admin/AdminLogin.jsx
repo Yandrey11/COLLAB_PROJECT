@@ -3,8 +3,10 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import ReCAPTCHA from "react-google-recaptcha";
 import Swal from "sweetalert2";
+import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 
 export default function AdminLogin() {
+  useDocumentTitle("Admin Login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [captchaToken, setCaptchaToken] = useState("");

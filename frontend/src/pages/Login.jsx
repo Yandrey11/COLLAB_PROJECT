@@ -3,8 +3,10 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import ReCAPTCHA from "react-google-recaptcha";
 import Swal from "sweetalert2";
+import { useDocumentTitle } from "../hooks/useDocumentTitle";
 
 function Login() {
+  useDocumentTitle("Login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [recaptchaToken, setRecaptchaToken] = useState(null);

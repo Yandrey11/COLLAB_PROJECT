@@ -2,10 +2,12 @@ import React, { useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
-import { validatePassword } from "../utils/passwordValidation.js";
+import { validatePassword } from "../utils/passwordValidation";
 import PasswordStrengthMeter from "../components/PasswordStrengthMeter.jsx";
+import { useDocumentTitle } from "../hooks/useDocumentTitle";
 
 function Signup() {
+  useDocumentTitle("Sign Up");
   const [signupData, setSignupData] = useState({
     name: "",
     email: "",
@@ -21,7 +23,10 @@ function Signup() {
     setSignupData({ ...signupData, [name]: value });
 
     if (name === "password") {
-      const result = validatePassword(value);
+      const result = validatePassword(value, {
+        email: signupData.email,
+        name: signupData.name,
+      });
       setPasswordErrors(result.errors);
     }
   };
@@ -30,15 +35,16 @@ function Signup() {
     e.preventDefault();
     setPasswordErrors([]);
 
-    const validation = validatePassword(signupData.password);
+    const validation = validatePassword(signupData.password, {
+      email: signupData.email,
+      name: signupData.name,
+    });
     if (!validation.isValid) {
       setPasswordErrors(validation.errors);
       Swal.fire({
         icon: "error",
         title: "Password requirements not met",
-        html: `<ul style="text-align:left;margin:0;padding-left:1.2rem;">${validation.errors
-          .map((err) => `<li>${err}</li>`)
-          .join("")}</ul>`,
+        html: `<ul style="text-align:left;margin:0;padding-left:1.2rem;">${validation.hints.length > 0 ? validation.hints.map((hint) => `<li>${hint}</li>`).join("") : validation.errors.map((err) => `<li>${err}</li>`).join("")}</ul>`,
       });
       return;
     }
@@ -122,7 +128,11 @@ function Signup() {
               className="w-full px-4 py-3 rounded-lg border border-gray-200 bg-gray-50 text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
             />
             <div className="mt-1">
-              <PasswordStrengthMeter password={signupData.password} />
+              <PasswordStrengthMeter 
+                password={signupData.password}
+                email={signupData.email}
+                name={signupData.name}
+              />
             </div>
             {passwordErrors.length > 0 && (
               <ul className="mt-2 text-xs text-red-600 list-disc list-inside">

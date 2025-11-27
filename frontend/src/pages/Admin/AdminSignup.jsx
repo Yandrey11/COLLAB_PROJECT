@@ -1,8 +1,10 @@
 import React, { useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 
 const AdminSignup = () => {
+  useDocumentTitle("Admin Sign Up");
     const navigate = useNavigate();
     const [formData, setFormData] = useState({
         name: "",

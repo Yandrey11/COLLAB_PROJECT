@@ -5,10 +5,12 @@ import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 import AdminSidebar from "../../components/AdminSidebar";
 import { initializeTheme } from "../../utils/themeUtils";
+import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 
 const API_URL = "http://localhost:5000/api/admin/records";
 
 export default function AdminRecordManagement() {
+  useDocumentTitle("Admin Record Management");
   const navigate = useNavigate();
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);

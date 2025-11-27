@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
-import { validatePassword } from "../utils/passwordValidation.js";
+import { validatePassword } from "../utils/passwordValidation";
 import PasswordStrengthMeter from "../components/PasswordStrengthMeter.jsx";
+import { useDocumentTitle } from "../hooks/useDocumentTitle";
 
 export default function ResetPassword() {
+  useDocumentTitle("Reset Password");
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
@@ -39,7 +41,7 @@ export default function ResetPassword() {
       return;
     }
 
-    const validation = validatePassword(newPassword);
+    const validation = validatePassword(newPassword, { email });
     if (!validation.isValid) {
       setPasswordErrors(validation.errors);
       setMessage("Password does not meet the security requirements.");
@@ -126,7 +128,7 @@ export default function ResetPassword() {
             onChange={(e) => {
               const value = e.target.value;
               setNewPassword(value);
-              const result = validatePassword(value);
+              const result = validatePassword(value, { email });
               setPasswordErrors(result.errors);
             }}
             style={{ 
@@ -139,7 +141,7 @@ export default function ResetPassword() {
             required
           />
           <div className="mt-1">
-            <PasswordStrengthMeter password={newPassword} />
+            <PasswordStrengthMeter password={newPassword} email={email} />
           </div>
           {passwordErrors.length > 0 && (
             <ul className="mt-2 text-xs text-red-600 list-disc list-inside">

@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Swal from "sweetalert2";
 import { NotificationBadgeBadge } from "../components/NotificationBadge";
 import { initializeTheme } from "../utils/themeUtils";
+import { useDocumentTitle } from "../hooks/useDocumentTitle";
 
 const API_URL = `${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api/records`;
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
@@ -25,6 +26,7 @@ const getImageUrl = (imagePath) => {
 };
 
 const ReportsPage = () => {
+  useDocumentTitle("Reports");
   const navigate = useNavigate();
   const [records, setRecords] = useState([]);
   const [filteredRecords, setFilteredRecords] = useState([]);

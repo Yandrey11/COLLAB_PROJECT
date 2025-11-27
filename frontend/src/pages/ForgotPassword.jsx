@@ -1,8 +1,10 @@
 import { useState } from "react";
 import axios from "axios";
 import { useNavigate, Link } from "react-router-dom";
+import { useDocumentTitle } from "../hooks/useDocumentTitle";
 
 export default function ForgotPassword() {
+  useDocumentTitle("Forgot Password");
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);

@@ -5,12 +5,16 @@ import { motion, AnimatePresence } from "framer-motion";
 import Swal from "sweetalert2";
 import AdminSidebar from "../../components/AdminSidebar";
 import { applyTheme, initializeTheme } from "../../utils/themeUtils";
+import { useDocumentTitle } from "../../hooks/useDocumentTitle";
+import { validatePassword } from "../../utils/passwordValidation";
+import PasswordStrengthMeter from "../../components/PasswordStrengthMeter.jsx";
 
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 const SETTINGS_API_URL = `${BASE_URL}/api/admin/settings`;
 const PROFILE_API_URL = `${BASE_URL}/api/admin/profile`;
 
 export default function AdminSettingsPage() {
+  useDocumentTitle("Admin Settings");
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -306,11 +310,17 @@ export default function AdminSettingsPage() {
       return;
     }
 
-    if (passwordForm.newPassword.length < 8) {
+    // Enhanced password validation
+    const validation = validatePassword(passwordForm.newPassword, {
+      email: profile?.email || admin?.email || "",
+      name: profile?.name || admin?.name || "",
+    });
+
+    if (!validation.isValid) {
       Swal.fire({
         icon: "error",
-        title: "Weak Password",
-        text: "Password must be at least 8 characters long",
+        title: "Password Requirements Not Met",
+        html: `<ul style="text-align:left;margin:0;padding-left:1.2rem;">${validation.hints.length > 0 ? validation.hints.map((hint) => `<li>${hint}</li>`).join("") : validation.errors.map((err) => `<li>${err}</li>`).join("")}</ul>`,
       });
       return;
     }
@@ -504,12 +514,15 @@ export default function AdminSettingsPage() {
                                 setPasswordForm({ ...passwordForm, newPassword: e.target.value })
                               }
                               required
-                              minLength={8}
                               className="w-full p-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                             />
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                              Must be at least 8 characters with uppercase, lowercase, number, and special character
-                            </p>
+                            <div className="mt-1">
+                              <PasswordStrengthMeter
+                                password={passwordForm.newPassword}
+                                email={profile?.email || admin?.email || ""}
+                                name={profile?.name || admin?.name || ""}
+                              />
+                            </div>
                           </div>
                           <div>
                             <label className="block text-sm font-semibold text-gray-900 mb-2">

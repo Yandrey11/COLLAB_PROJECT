@@ -1,6 +1,8 @@
 import { Link } from "react-router-dom";
+import { useDocumentTitle } from "../hooks/useDocumentTitle";
 
 export default function Landing() {
+  useDocumentTitle("Home");
   return (
     <div className="min-h-screen w-full flex flex-col overflow-x-hidden bg-gradient-to-br from-indigo-50 to-indigo-100 font-sans text-gray-900">
       {/* Navbar */}

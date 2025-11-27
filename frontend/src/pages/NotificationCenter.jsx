@@ -4,6 +4,7 @@ import axios from "axios";
 import Swal from "sweetalert2";
 import { NotificationBadgeBadge } from "../components/NotificationBadge";
 import { initializeTheme } from "../utils/themeUtils";
+import { useDocumentTitle } from "../hooks/useDocumentTitle";
 
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
@@ -21,6 +22,7 @@ const getImageUrl = (imagePath) => {
 };
 
 export default function NotificationCenter() {
+  useDocumentTitle("Notifications");
   const navigate = useNavigate();
   const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
   const [loading, setLoading] = useState(true);

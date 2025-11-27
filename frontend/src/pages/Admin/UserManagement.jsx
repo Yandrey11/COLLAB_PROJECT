@@ -4,8 +4,10 @@ import axios from "axios";
 import Swal from "sweetalert2";
 import AdminSidebar from "../../components/AdminSidebar";
 import { initializeTheme } from "../../utils/themeUtils";
+import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 
 export default function UserManagement() {
+  useDocumentTitle("Admin User Management");
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState([]);
