@@ -1,6 +1,8 @@
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import GoogleUser from "../models/GoogleUser.js";
+import Admin from "../models/Admin.js";
+import Session from "../models/Session.js";
 
 // ✅ Verify JWT and attach user to request
 export const protect = async (req, res, next) => {
@@ -34,6 +36,21 @@ export const protect = async (req, res, next) => {
           googleCalendarTokenExpires: googleUser.googleCalendarTokenExpires || null,
         };
       }
+    }
+    
+    // If still not found, try Admin collection (for admin users)
+    if (!user) {
+      const admin = await Admin.findById(decoded.id).select("-password");
+      if (admin) {
+        // Convert Admin to user-like object for compatibility
+        user = {
+          _id: admin._id,
+          id: admin._id,
+          name: admin.name,
+          email: admin.email,
+          role: admin.role || "admin",
+        };
+      }
     } else if (user && !user.googleCalendarAccessToken) {
       // If user is from User collection but has googleId, check GoogleUser for calendar tokens
       if (user.googleId) {
@@ -49,6 +66,34 @@ export const protect = async (req, res, next) => {
 
     if (!user) {
       return res.status(401).json({ message: "User not found" });
+    }
+
+    // Check session inactivity (1 hour timeout)
+    const session = await Session.findOne({ 
+      token: token,
+      isActive: true 
+    });
+
+    if (session) {
+      const now = new Date();
+      const lastActivityTime = new Date(session.lastActivity);
+      const inactivityDuration = now - lastActivityTime;
+      const INACTIVITY_TIMEOUT_MS = 60 * 60 * 1000; // 1 hour
+
+      if (inactivityDuration > INACTIVITY_TIMEOUT_MS) {
+        // Session expired due to inactivity
+        session.isActive = false;
+        await session.save();
+
+        return res.status(401).json({ 
+          message: "Session expired due to inactivity. Please log in again.",
+          code: "SESSION_INACTIVE"
+        });
+      }
+
+      // Update lastActivity on each request
+      session.lastActivity = new Date();
+      await session.save();
     }
 
     req.user = user;
