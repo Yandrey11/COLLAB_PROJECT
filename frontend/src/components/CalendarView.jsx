@@ -121,7 +121,7 @@ export default function CalendarView({ calendarEvents = [], records = [] }) {
       <div className="flex items-center justify-between mb-3">
         <button
           onClick={goToPreviousMonth}
-          className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-sm text-gray-700 dark:text-gray-300"
+          className="p-2 rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300 font-semibold"
           aria-label="Previous month"
         >
           ←
@@ -132,14 +132,14 @@ export default function CalendarView({ calendarEvents = [], records = [] }) {
           </h3>
           <button
             onClick={goToToday}
-            className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium"
+            className="mt-1 px-3 py-1 rounded-lg bg-indigo-600 dark:bg-indigo-600 text-white dark:text-white hover:bg-indigo-700 dark:hover:bg-indigo-700 text-[10px] font-semibold transition-colors"
           >
             Go to Today
           </button>
         </div>
         <button
           onClick={goToNextMonth}
-          className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-sm text-gray-700 dark:text-gray-300"
+          className="p-2 rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-sm text-gray-700 dark:text-gray-300 font-semibold"
           aria-label="Next month"
         >
           →
