@@ -148,8 +148,63 @@ const generateTrackingNumber = () => {
   return `DOC-${timestamp}-${random}`;
 };
 
+// Helper function to add header and footer for single record PDF
+const addRecordHeaderFooter = (doc, pageNum, totalPages, trackingNumber, reportDate) => {
+  const pageWidth = doc.page.width;
+  const pageHeight = doc.page.height;
+  const headerHeight = 55;
+  const footerHeight = 60;
+
+  // Header - Blue background
+  doc.fillColor('#667eea');
+  doc.rect(0, 0, pageWidth, headerHeight).fill();
+  
+  // Header text in white
+  doc.fillColor('#ffffff');
+  doc.fontSize(16)
+     .font('Helvetica-Bold')
+     .text("COUNSELING RECORD", pageWidth / 6, 6, { align: 'left' });
+  
+  doc.fontSize(9)
+     .font('Helvetica')
+     .fillColor('#ffffff');
+  doc.text(`Document Tracking: ${trackingNumber}`, 14, 38);
+  doc.text(`Date: ${reportDate}`, 14, 38, { 
+    width: pageWidth - 28, 
+    align: 'right' 
+  });
+  
+  // Footer - Blue background
+  doc.fillColor('#667eea');
+  doc.rect(0, pageHeight - footerHeight, pageWidth, footerHeight).fill();
+  
+  // Footer text in white
+  doc.fillColor('#ffffff');
+  doc.fontSize(8)
+     .font('Helvetica')
+     .text("CONFIDENTIAL - This document contains sensitive information and is protected under client confidentiality agreements.", 
+       pageWidth / 2, pageHeight - footerHeight + 8, { align: 'left', width: pageWidth - 28 });
+  
+  doc.fontSize(7)
+     .fillColor('#ffffff');
+  doc.text("Counseling Services Management System", 14, pageHeight - footerHeight + 25);
+  doc.text(`Page ${pageNum} of ${totalPages}`, pageWidth / 2, pageHeight - footerHeight + 25, { align: 'center' });
+  doc.text(`Tracking: ${trackingNumber}`, 14, pageHeight - footerHeight + 25, { 
+    width: pageWidth - 28, 
+    align: 'right' 
+  });
+  
+  doc.fontSize(6)
+     .fillColor('#ffffff');
+  doc.text("For inquiries, contact your system administrator. This report is generated electronically.", 
+    pageWidth / 2, pageHeight - footerHeight + 38, { align: 'center', width: pageWidth - 28 });
+  
+  // CRITICAL: Reset fillColor to black after header/footer
+  doc.fillColor(0, 0, 0);
+};
+
 // Helper function to add header and footer (matching report format)
-const addHeaderFooter = (doc, pageNum, totalPages, trackingNumber, reportDate) => {
+const addHeaderFooter = (doc, pageNum, totalPages, trackingNumber, reportDate, reportTitle = "COUNSELING RECORDS REPORT") => {
   const pageWidth = doc.page.width;
   const pageHeight = doc.page.height;
 
@@ -209,83 +264,223 @@ const uploadRecordToDrive = async (record, req) => {
       return null;
     }
 
+    // ✅ Fetch record from database to ensure all fields are populated
+    let recordData;
+    if (record._id) {
+      const fetchedRecord = await Record.findById(record._id);
+      if (!fetchedRecord) {
+        console.error("❌ Record not found in database");
+        return null;
+      }
+      // Convert to plain object to ensure all fields are accessible
+      recordData = {
+        _id: fetchedRecord._id,
+        clientName: fetchedRecord.clientName || "N/A",
+        date: fetchedRecord.date,
+        sessionType: fetchedRecord.sessionType || "N/A",
+        status: fetchedRecord.status || "N/A",
+        counselor: fetchedRecord.counselor || "Unknown Counselor",
+        sessionNumber: fetchedRecord.sessionNumber,
+        notes: fetchedRecord.notes || null,
+        outcomes: fetchedRecord.outcomes || fetchedRecord.outcome || null,
+      };
+    } else {
+      // If record is already a plain object, use it directly
+      recordData = {
+        _id: record._id,
+        clientName: record.clientName || "N/A",
+        date: record.date,
+        sessionType: record.sessionType || "N/A",
+        status: record.status || "N/A",
+        counselor: record.counselor || "Unknown Counselor",
+        sessionNumber: record.sessionNumber,
+        notes: record.notes || null,
+        outcomes: record.outcomes || record.outcome || null,
+      };
+    }
+
     // Get counselor name for filename
-    const counselorName = record.counselor || req.user?.name || req.user?.email || "Unknown_Counselor";
+    const counselorName = recordData.counselor || req.user?.name || req.user?.email || "Unknown_Counselor";
     const sanitizedCounselorName = counselorName.replace(/[^a-zA-Z0-9]/g, '_');
 
     // Generate tracking number
     const trackingNumber = generateTrackingNumber();
 
-    // ✅ Generate PDF file locally with simple single-page format
+    // ✅ Generate PDF file locally with same format as reports PDF
     const tempDir = path.join(process.cwd(), "temp");
     fs.mkdirSync(tempDir, { recursive: true });
-    const pdfPath = path.join(tempDir, `${sanitizedCounselorName}_${record.clientName.replace(/\s+/g, '_')}_${trackingNumber}.pdf`);
+    const pdfPath = path.join(tempDir, `${sanitizedCounselorName}_${recordData.clientName.replace(/\s+/g, '_')}_${trackingNumber}.pdf`);
 
     const doc = new PDFDocument({ 
-      margin: 72, // 1 inch margins on all sides
-      size: 'LETTER'
+      margin: 0,
+      size: 'A4'
     });
     const writeStream = fs.createWriteStream(pdfPath);
     doc.pipe(writeStream);
 
-    // Get page dimensions
+    // Get page dimensions (A4 = 595.28 x 841.89 points)
     const pageWidth = doc.page.width;
     const pageHeight = doc.page.height;
-    const leftMargin = 72;
-    const rightMargin = 72;
-    const contentWidth = pageWidth - leftMargin - rightMargin;
     
-    // Start from top with some spacing
-    let finalY = 100;
+    // Use the same margins as reports PDF
+    const marginTop = 72;
+    const marginBottom = 72;
+    const marginLeft = 54;
+    const marginRight = 54;
+    const headerHeight = 55;
+    const footerHeight = 60;
+    
+    const contentStartX = marginLeft;
+    const contentWidth = pageWidth - marginLeft - marginRight;
+    const contentStartY = marginTop + headerHeight + 40;
 
-    // Set black color for all text
+    // Add header and footer using helper function (with blue background and white text)
+    const reportDate = recordData.date ? new Date(recordData.date).toLocaleDateString() : new Date().toLocaleDateString();
+    addRecordHeaderFooter(doc, 1, 1, trackingNumber, reportDate);
+
+    // CRITICAL: Reset fillColor to black after header/footer - use both formats for reliability
+    doc.fillColor('black');
     doc.fillColor(0, 0, 0);
 
-    // Main Title - "Counseling Record" (centered, large, bold)
-    doc.fontSize(24)
-       .font('Helvetica-Bold')
-       .fillColor(0, 0, 0)
-       .text("Counseling Record", pageWidth / 2, finalY, { align: 'center' });
-    finalY += 50;
+    // Start content
+    let finalY = contentStartY;
 
-    // Client Details Section (left-aligned)
-    doc.fontSize(12)
-       .font('Helvetica')
+    // Main Title - Split into two lines like reports PDF
+    doc.fillColor(0, 0, 0);
+    doc.strokeColor(0, 0, 0);
+    
+    doc.fontSize(20)
+       .font('Helvetica-Bold')
        .fillColor(0, 0, 0);
     
-    doc.text(`Client Name: ${record.clientName || "N/A"}`, leftMargin, finalY);
-    finalY += 20;
+    // First line: "COUNSELING RECORDS"
+    doc.text("COUNSELING RECORDS", contentStartX, finalY, { 
+      width: contentWidth, 
+      align: 'center',
+      lineGap: 0
+    });
+    finalY += 28;
     
-    doc.text(`Date: ${record.date ? new Date(record.date).toLocaleDateString() : "N/A"}`, leftMargin, finalY);
-    finalY += 20;
+    // Second line: "REPORT"
+    doc.fillColor(0, 0, 0);
+    doc.text("REPORT", contentStartX, finalY, { 
+      width: contentWidth, 
+      align: 'center',
+      lineGap: 0
+    });
+    finalY += 35;
     
-    doc.text(`Session Type: ${record.sessionType || "N/A"}`, leftMargin, finalY);
+    // Add a separator line after title
+    doc.strokeColor(200, 200, 200)
+       .lineWidth(1)
+       .moveTo(contentStartX, finalY - 5)
+       .lineTo(contentStartX + contentWidth, finalY - 5)
+       .stroke();
     finalY += 20;
+
+    // Client Details Section - Formatted like a table
+    const labelWidth = 130;
+    const valueStartX = contentStartX + labelWidth;
     
-    doc.text(`Status: ${record.status || "N/A"}`, leftMargin, finalY);
-    finalY += 20;
+    // Force black color for all content
+    doc.fillColor(0, 0, 0);
     
-    doc.text(`Counselor: ${record.counselor || "Unknown Counselor"}`, leftMargin, finalY);
-    finalY += 40;
+    // Client Name
+    doc.fontSize(11)
+       .font('Helvetica-Bold')
+       .fillColor(0, 0, 0);
+    doc.text("Client Name:", contentStartX, finalY);
+    doc.font('Helvetica')
+       .fillColor(0, 0, 0);
+    doc.text(String(record.clientName || "N/A"), valueStartX, finalY);
+    finalY += 22;
+    
+    // Date
+    doc.font('Helvetica-Bold')
+       .fillColor(0, 0, 0);
+    doc.text("Date:", contentStartX, finalY);
+    doc.font('Helvetica')
+       .fillColor(0, 0, 0);
+    const dateValue = record.date ? new Date(record.date).toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    }) : "N/A";
+    doc.text(dateValue, valueStartX, finalY);
+    finalY += 22;
+    
+    // Session Number
+    if (record.sessionNumber) {
+      doc.font('Helvetica-Bold')
+         .fillColor(0, 0, 0);
+      doc.text("Session Number:", contentStartX, finalY);
+      doc.font('Helvetica')
+         .fillColor(0, 0, 0);
+      doc.text(String(record.sessionNumber), valueStartX, finalY);
+      finalY += 22;
+    }
+    
+    // Session Type
+    doc.font('Helvetica-Bold')
+       .fillColor(0, 0, 0);
+    doc.text("Session Type:", contentStartX, finalY);
+    doc.font('Helvetica')
+       .fillColor(0, 0, 0);
+    doc.text(String(record.sessionType || "N/A"), valueStartX, finalY);
+    finalY += 22;
+    
+    // Status
+    doc.font('Helvetica-Bold')
+       .fillColor(0, 0, 0);
+    doc.text("Status:", contentStartX, finalY);
+    doc.font('Helvetica')
+       .fillColor(0, 0, 0);
+    doc.text(String(record.status || "N/A"), valueStartX, finalY);
+    finalY += 22;
+    
+    // Counselor
+    doc.font('Helvetica-Bold')
+       .fillColor(0, 0, 0);
+    doc.text("Counselor:", contentStartX, finalY);
+    doc.font('Helvetica')
+       .fillColor(0, 0, 0);
+    doc.text(String(record.counselor || "Unknown Counselor"), valueStartX, finalY);
+    finalY += 30;
 
     // Session Notes Section
-    doc.fontSize(12)
+    doc.fillColor(0, 0, 0);
+    doc.fontSize(14)
        .font('Helvetica-Bold')
-       .fillColor(0, 0, 0)
-       .text("Session Notes:", leftMargin, finalY);
-    finalY += 20;
+       .text("Session Notes:", contentStartX, finalY);
+    finalY += 25;
     
     const notesText = record.notes || "No notes available.";
-    doc.fontSize(12)
+    
+    // Check if we need a new page for notes
+    const estimatedNotesHeight = doc.heightOfString(notesText || "No notes available.", {
+      width: contentWidth,
+      lineGap: 5
+    });
+    const maxContentY = pageHeight - marginBottom - footerHeight - 80;
+    
+    if (finalY + estimatedNotesHeight + 100 > maxContentY) {
+      // Add new page if needed
+      doc.addPage();
+      addRecordHeaderFooter(doc, 2, 2, trackingNumber, reportDate);
+      doc.fillColor(0, 0, 0);
+      finalY = contentStartY;
+    }
+    
+    // Notes text
+    doc.fillColor(0, 0, 0);
+    doc.fontSize(11)
        .font('Helvetica')
-       .fillColor(0, 0, 0)
-       .text(notesText, leftMargin, finalY, { 
+       .text(notesText, contentStartX, finalY, { 
          width: contentWidth,
          align: 'left',
          lineGap: 5
        });
     
-    // Calculate height used by notes
     const notesHeight = doc.heightOfString(notesText, {
       width: contentWidth,
       lineGap: 5
@@ -293,17 +488,33 @@ const uploadRecordToDrive = async (record, req) => {
     finalY += notesHeight + 30;
 
     // Outcomes Section
-    doc.fontSize(12)
+    doc.fillColor(0, 0, 0);
+    doc.fontSize(14)
        .font('Helvetica-Bold')
-       .fillColor(0, 0, 0)
-       .text("Outcomes:", leftMargin, finalY);
-    finalY += 20;
+       .text("Outcomes:", contentStartX, finalY);
+    finalY += 25;
     
     const outcomeText = record.outcomes || record.outcome || "No outcome recorded.";
-    doc.fontSize(12)
+    
+    // Check if we need a new page for outcomes
+    const estimatedOutcomeHeight = doc.heightOfString(outcomeText || "No outcome recorded.", {
+      width: contentWidth,
+      lineGap: 5
+    });
+    
+    if (finalY + estimatedOutcomeHeight + 100 > maxContentY) {
+      // Add new page if needed
+      doc.addPage();
+      addRecordHeaderFooter(doc, 2, 2, trackingNumber, reportDate);
+      doc.fillColor(0, 0, 0);
+      finalY = contentStartY;
+    }
+    
+    // Outcome text
+    doc.fillColor(0, 0, 0);
+    doc.fontSize(11)
        .font('Helvetica')
-       .fillColor(0, 0, 0)
-       .text(outcomeText, leftMargin, finalY, { 
+       .text(outcomeText, contentStartX, finalY, { 
          width: contentWidth,
          align: 'left',
          lineGap: 5
@@ -348,18 +559,18 @@ const uploadRecordToDrive = async (record, req) => {
       
       await createNotification({
         title: "PDF Generated and Uploaded",
-        description: `${userName} (${userRole}) has generated and uploaded a PDF for client: ${record.clientName} - Session ${record.sessionNumber}. File: ${fileName}`,
+        description: `${userName} (${userRole}) has generated and uploaded a PDF for client: ${recordData.clientName} - Session ${recordData.sessionNumber}. File: ${fileName}`,
         category: "User Activity",
         priority: "low",
         metadata: {
-          clientName: record.clientName,
-          recordId: record._id.toString(),
+          clientName: recordData.clientName,
+          recordId: recordData._id.toString(),
           pdfFileName: fileName,
           driveLink: driveLink,
           generatedBy: userName,
           generatedByRole: userRole,
         },
-        relatedId: record._id.toString(),
+        relatedId: recordData._id.toString(),
         relatedType: "record",
       });
     } catch (notificationError) {
@@ -373,17 +584,17 @@ const uploadRecordToDrive = async (record, req) => {
           counselorId: req.user._id || req.user.id,
           counselorEmail: req.user.email,
           title: "Record Uploaded to Google Drive",
-          description: `Your record for ${record.clientName} (Session ${record.sessionNumber}) has been successfully uploaded to Google Drive.`,
+          description: `Your record for ${recordData.clientName} (Session ${recordData.sessionNumber}) has been successfully uploaded to Google Drive.`,
           category: "New Record",
           priority: "low",
           metadata: {
-            clientName: record.clientName,
-            recordId: record._id.toString(),
-            sessionNumber: record.sessionNumber,
+            clientName: recordData.clientName,
+            recordId: recordData._id.toString(),
+            sessionNumber: recordData.sessionNumber,
             driveLink: driveLink,
             fileName: fileName,
           },
-          relatedId: record._id,
+          relatedId: recordData._id,
           relatedType: "record",
         });
       }
@@ -551,83 +762,201 @@ export const uploadToDrive = async (req, res) => {
       return res.status(401).json({ error: "Google Drive not connected — no tokens saved" });
     }
 
+    // Convert to plain object to ensure all fields are accessible
+    const recordData = {
+      _id: record._id,
+      clientName: record.clientName || "N/A",
+      date: record.date,
+      sessionType: record.sessionType || "N/A",
+      status: record.status || "N/A",
+      counselor: record.counselor || "Unknown Counselor",
+      sessionNumber: record.sessionNumber,
+      notes: record.notes || null,
+      outcomes: record.outcomes || record.outcome || null,
+    };
+
     // Get counselor name for filename
-    const counselorName = record.counselor || req.user?.name || req.user?.email || "Unknown_Counselor";
+    const counselorName = recordData.counselor || req.user?.name || req.user?.email || "Unknown_Counselor";
     const sanitizedCounselorName = counselorName.replace(/[^a-zA-Z0-9]/g, '_');
 
     // Generate tracking number
     const trackingNumber = generateTrackingNumber();
 
-    // ✅ Generate PDF file locally with simple single-page format
+    // ✅ Generate PDF file locally with same format as reports PDF
     const tempDir = path.join(process.cwd(), "temp");
     fs.mkdirSync(tempDir, { recursive: true });
-    const pdfPath = path.join(tempDir, `${sanitizedCounselorName}_${record.clientName.replace(/\s+/g, '_')}_${trackingNumber}.pdf`);
+    const pdfPath = path.join(tempDir, `${sanitizedCounselorName}_${recordData.clientName.replace(/\s+/g, '_')}_${trackingNumber}.pdf`);
 
     const doc = new PDFDocument({ 
-      margin: 72, // 1 inch margins on all sides
-      size: 'LETTER'
+      margin: 0,
+      size: 'A4'
     });
     const writeStream = fs.createWriteStream(pdfPath);
     doc.pipe(writeStream);
 
-    // Get page dimensions
+    // Get page dimensions (A4 = 595.28 x 841.89 points)
     const pageWidth = doc.page.width;
     const pageHeight = doc.page.height;
-    const leftMargin = 72;
-    const rightMargin = 72;
-    const contentWidth = pageWidth - leftMargin - rightMargin;
     
-    // Start from top with some spacing
-    let finalY = 100;
+    // Use the same margins as reports PDF
+    const marginTop = 72;
+    const marginBottom = 72;
+    const marginLeft = 54;
+    const marginRight = 54;
+    const headerHeight = 55;
+    const footerHeight = 60;
+    
+    const contentStartX = marginLeft;
+    const contentWidth = pageWidth - marginLeft - marginRight;
+    const contentStartY = marginTop + headerHeight + 40;
 
-    // Set black color for all text
+    // Add header and footer using helper function (with blue background and white text)
+    const reportDate = recordData.date ? new Date(recordData.date).toLocaleDateString() : new Date().toLocaleDateString();
+    addRecordHeaderFooter(doc, 1, 1, trackingNumber, reportDate);
+
+    // CRITICAL: Reset fillColor to black after header/footer - use both formats for reliability
+    doc.fillColor('black');
     doc.fillColor(0, 0, 0);
 
-    // Main Title - "Counseling Record" (centered, large, bold)
-    doc.fontSize(24)
-       .font('Helvetica-Bold')
-       .fillColor(0, 0, 0)
-       .text("Counseling Record", pageWidth / 2, finalY, { align: 'center' });
-    finalY += 50;
+    // Start content
+    let finalY = contentStartY;
 
-    // Client Details Section (left-aligned)
-    doc.fontSize(12)
-       .font('Helvetica')
+    // Main Title - Split into two lines like reports PDF
+    doc.fillColor(0, 0, 0);
+    doc.strokeColor(0, 0, 0);
+    
+    doc.fontSize(20)
+       .font('Helvetica-Bold')
        .fillColor(0, 0, 0);
     
-    doc.text(`Client Name: ${record.clientName || "N/A"}`, leftMargin, finalY);
-    finalY += 20;
+    // First line: "COUNSELING RECORDS"
+    doc.text("COUNSELING RECORDS", contentStartX, finalY, { 
+      width: contentWidth, 
+      align: 'center',
+      lineGap: 0
+    });
+    finalY += 28;
     
-    doc.text(`Date: ${record.date ? new Date(record.date).toLocaleDateString() : "N/A"}`, leftMargin, finalY);
-    finalY += 20;
+    // Second line: "REPORT"
+    doc.fillColor(0, 0, 0);
+    doc.text("REPORT", contentStartX, finalY, { 
+      width: contentWidth, 
+      align: 'center',
+      lineGap: 0
+    });
+    finalY += 35;
     
-    doc.text(`Session Type: ${record.sessionType || "N/A"}`, leftMargin, finalY);
+    // Add a separator line after title
+    doc.strokeColor(200, 200, 200)
+       .lineWidth(1)
+       .moveTo(contentStartX, finalY - 5)
+       .lineTo(contentStartX + contentWidth, finalY - 5)
+       .stroke();
     finalY += 20;
+
+    // Client Details Section - Formatted like a table
+    const labelWidth = 130;
+    const valueStartX = contentStartX + labelWidth;
     
-    doc.text(`Status: ${record.status || "N/A"}`, leftMargin, finalY);
-    finalY += 20;
+    // Force black color for all content
+    doc.fillColor(0, 0, 0);
     
-    doc.text(`Counselor: ${record.counselor || "Unknown Counselor"}`, leftMargin, finalY);
-    finalY += 40;
+    // Client Name
+    doc.fontSize(11)
+       .font('Helvetica-Bold')
+       .fillColor(0, 0, 0);
+    doc.text("Client Name:", contentStartX, finalY);
+    doc.font('Helvetica')
+       .fillColor(0, 0, 0);
+    doc.text(String(record.clientName || "N/A"), valueStartX, finalY);
+    finalY += 22;
+    
+    // Date
+    doc.font('Helvetica-Bold')
+       .fillColor(0, 0, 0);
+    doc.text("Date:", contentStartX, finalY);
+    doc.font('Helvetica')
+       .fillColor(0, 0, 0);
+    const dateValue = record.date ? new Date(record.date).toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    }) : "N/A";
+    doc.text(dateValue, valueStartX, finalY);
+    finalY += 22;
+    
+    // Session Number
+    if (record.sessionNumber) {
+      doc.font('Helvetica-Bold')
+         .fillColor(0, 0, 0);
+      doc.text("Session Number:", contentStartX, finalY);
+      doc.font('Helvetica')
+         .fillColor(0, 0, 0);
+      doc.text(String(record.sessionNumber), valueStartX, finalY);
+      finalY += 22;
+    }
+    
+    // Session Type
+    doc.font('Helvetica-Bold')
+       .fillColor(0, 0, 0);
+    doc.text("Session Type:", contentStartX, finalY);
+    doc.font('Helvetica')
+       .fillColor(0, 0, 0);
+    doc.text(String(record.sessionType || "N/A"), valueStartX, finalY);
+    finalY += 22;
+    
+    // Status
+    doc.font('Helvetica-Bold')
+       .fillColor(0, 0, 0);
+    doc.text("Status:", contentStartX, finalY);
+    doc.font('Helvetica')
+       .fillColor(0, 0, 0);
+    doc.text(String(record.status || "N/A"), valueStartX, finalY);
+    finalY += 22;
+    
+    // Counselor
+    doc.font('Helvetica-Bold')
+       .fillColor(0, 0, 0);
+    doc.text("Counselor:", contentStartX, finalY);
+    doc.font('Helvetica')
+       .fillColor(0, 0, 0);
+    doc.text(String(record.counselor || "Unknown Counselor"), valueStartX, finalY);
+    finalY += 30;
 
     // Session Notes Section
-    doc.fontSize(12)
+    doc.fillColor(0, 0, 0);
+    doc.fontSize(14)
        .font('Helvetica-Bold')
-       .fillColor(0, 0, 0)
-       .text("Session Notes:", leftMargin, finalY);
-    finalY += 20;
+       .text("Session Notes:", contentStartX, finalY);
+    finalY += 25;
     
     const notesText = record.notes || "No notes available.";
-    doc.fontSize(12)
+    
+    // Check if we need a new page for notes
+    const estimatedNotesHeight = doc.heightOfString(notesText || "No notes available.", {
+      width: contentWidth,
+      lineGap: 5
+    });
+    const maxContentY = pageHeight - marginBottom - footerHeight - 80;
+    
+    if (finalY + estimatedNotesHeight + 100 > maxContentY) {
+      // Add new page if needed
+      doc.addPage();
+      addRecordHeaderFooter(doc, 2, 2, trackingNumber, reportDate);
+      doc.fillColor(0, 0, 0);
+      finalY = contentStartY;
+    }
+    
+    // Notes text
+    doc.fillColor(0, 0, 0);
+    doc.fontSize(11)
        .font('Helvetica')
-       .fillColor(0, 0, 0)
-       .text(notesText, leftMargin, finalY, { 
+       .text(notesText, contentStartX, finalY, { 
          width: contentWidth,
          align: 'left',
          lineGap: 5
        });
     
-    // Calculate height used by notes
     const notesHeight = doc.heightOfString(notesText, {
       width: contentWidth,
       lineGap: 5
@@ -635,17 +964,33 @@ export const uploadToDrive = async (req, res) => {
     finalY += notesHeight + 30;
 
     // Outcomes Section
-    doc.fontSize(12)
+    doc.fillColor(0, 0, 0);
+    doc.fontSize(14)
        .font('Helvetica-Bold')
-       .fillColor(0, 0, 0)
-       .text("Outcomes:", leftMargin, finalY);
-    finalY += 20;
+       .text("Outcomes:", contentStartX, finalY);
+    finalY += 25;
     
     const outcomeText = record.outcomes || record.outcome || "No outcome recorded.";
-    doc.fontSize(12)
+    
+    // Check if we need a new page for outcomes
+    const estimatedOutcomeHeight = doc.heightOfString(outcomeText || "No outcome recorded.", {
+      width: contentWidth,
+      lineGap: 5
+    });
+    
+    if (finalY + estimatedOutcomeHeight + 100 > maxContentY) {
+      // Add new page if needed
+      doc.addPage();
+      addRecordHeaderFooter(doc, 2, 2, trackingNumber, reportDate);
+      doc.fillColor(0, 0, 0);
+      finalY = contentStartY;
+    }
+    
+    // Outcome text
+    doc.fillColor(0, 0, 0);
+    doc.fontSize(11)
        .font('Helvetica')
-       .fillColor(0, 0, 0)
-       .text(outcomeText, leftMargin, finalY, { 
+       .text(outcomeText, contentStartX, finalY, { 
          width: contentWidth,
          align: 'left',
          lineGap: 5
@@ -690,18 +1035,18 @@ export const uploadToDrive = async (req, res) => {
       
       await createNotification({
         title: "PDF Generated and Uploaded",
-        description: `${userName} (${userRole}) has generated and uploaded a PDF for client: ${record.clientName}. File: ${fileName}`,
+        description: `${userName} (${userRole}) has generated and uploaded a PDF for client: ${recordData.clientName}. File: ${fileName}`,
         category: "User Activity",
         priority: "low",
         metadata: {
-          clientName: record.clientName,
-          recordId: record._id.toString(),
+          clientName: recordData.clientName,
+          recordId: recordData._id.toString(),
           pdfFileName: fileName,
           driveLink: driveLink,
           generatedBy: userName,
           generatedByRole: userRole,
         },
-        relatedId: record._id.toString(),
+        relatedId: recordData._id.toString(),
         relatedType: "record",
       });
     } catch (notificationError) {
@@ -719,6 +1064,350 @@ export const uploadToDrive = async (req, res) => {
   } catch (err) {
     console.error("❌ Drive upload error:", err);
     res.status(500).json({ error: err.message });
+  }
+};
+
+// 📄 Generate PDF for a single record (download only, no Drive upload)
+export const generateRecordPDF = async (req, res) => {
+  try {
+    // Validate record ID
+    if (!req.params.id) {
+      return res.status(400).json({ error: "Record ID is required" });
+    }
+
+    // Fetch record with all fields - don't use lean() to ensure all fields are available
+    const record = await Record.findById(req.params.id);
+    if (!record) {
+      return res.status(404).json({ error: "Record not found" });
+    }
+
+    // Convert to plain object to ensure all fields are accessible
+    const recordData = {
+      _id: record._id,
+      clientName: record.clientName || "N/A",
+      date: record.date,
+      sessionType: record.sessionType || "N/A",
+      status: record.status || "N/A",
+      counselor: record.counselor || "Unknown Counselor",
+      sessionNumber: record.sessionNumber,
+      notes: record.notes || null,
+      outcomes: record.outcomes || record.outcome || null,
+    };
+
+    // Log record data for debugging
+    console.log("📋 Generating PDF for record:", {
+      id: recordData._id,
+      clientName: recordData.clientName,
+      date: recordData.date,
+      sessionType: recordData.sessionType,
+      status: recordData.status,
+      counselor: recordData.counselor,
+      sessionNumber: recordData.sessionNumber,
+      notes: recordData.notes ? recordData.notes.substring(0, 50) + "..." : null,
+      outcomes: recordData.outcomes ? recordData.outcomes.substring(0, 50) + "..." : null,
+      hasNotes: !!recordData.notes,
+      hasOutcomes: !!recordData.outcomes,
+    });
+
+    // Validate record has required fields
+    if (!recordData.clientName || recordData.clientName === "N/A") {
+      return res.status(400).json({ error: "Record is missing required information" });
+    }
+    
+    // Use recordData for all content (avoiding conflict with const record above)
+
+    // Get counselor name for filename
+    const counselorName = recordData.counselor || req.user?.name || req.user?.email || req.admin?.name || req.admin?.email || "Unknown_Counselor";
+    const sanitizedCounselorName = counselorName.replace(/[^a-zA-Z0-9]/g, '_');
+    const sanitizedClientName = (recordData.clientName || "Unknown").replace(/[^a-zA-Z0-9]/g, '_');
+
+    // Generate tracking number
+    const trackingNumber = generateTrackingNumber();
+
+    // Generate filename
+    const fileName = `${sanitizedCounselorName}_${sanitizedClientName}_${trackingNumber}.pdf`;
+
+    // Create PDF in memory with error handling
+    let doc;
+    try {
+      doc = new PDFDocument({ 
+        margin: 0,
+        size: 'A4'
+      });
+    } catch (pdfError) {
+      console.error("❌ Error creating PDF document:", pdfError);
+      return res.status(500).json({ error: "Failed to initialize PDF generation. Please try again." });
+    }
+
+    // Set response headers for PDF download
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    
+    // Handle PDF stream errors
+    doc.on('error', (streamError) => {
+      console.error("❌ PDF stream error:", streamError);
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Error generating PDF. Please try again." });
+      }
+    });
+    
+    // Pipe PDF directly to response
+    doc.pipe(res);
+
+    // Get page dimensions (A4 = 595.28 x 841.89 points)
+    const pageWidth = doc.page.width;
+    const pageHeight = doc.page.height;
+    
+    // Use the same margins as admin reports
+    const marginTop = 72; // 2.54 cm
+    const marginBottom = 72; // 2.54 cm
+    const marginLeft = 54; // 1.91 cm
+    const marginRight = 54; // 1.91 cm
+    const headerHeight = 55;
+    const footerHeight = 60;
+    
+    const contentStartX = marginLeft;
+    const contentWidth = pageWidth - marginLeft - marginRight;
+    const contentStartY = marginTop + headerHeight + 40;
+
+    // Add header and footer using helper function
+    const reportDate = recordData.date ? new Date(recordData.date).toLocaleDateString() : new Date().toLocaleDateString();
+    addRecordHeaderFooter(doc, 1, 1, trackingNumber, reportDate);
+
+    // CRITICAL: Reset fillColor to black after header/footer
+    doc.fillColor(0, 0, 0);
+
+    // Start content - ensure we start below header (72 top margin + 55 header + 40 spacing = 167)
+    let finalY = contentStartY;
+    
+    // Verify position is correct
+    console.log("Content starting at Y:", finalY, "Page height:", pageHeight);
+    
+    console.log("📄 PDF Content Position:", {
+      contentStartY,
+      contentStartX,
+      contentWidth,
+      pageHeight,
+      marginBottom,
+      footerHeight,
+      recordData: {
+        clientName: recordData.clientName,
+        date: recordData.date,
+        sessionType: recordData.sessionType,
+        status: recordData.status,
+        counselor: recordData.counselor,
+        hasNotes: !!recordData.notes,
+        hasOutcomes: !!recordData.outcomes
+      }
+    });
+
+    // Main Title - Split into two lines like admin reports - "COUNSELING RECORDS" and "REPORT"
+    // Explicitly set black color and font
+    doc.fillColor(0, 0, 0); // Black color
+    doc.strokeColor(0, 0, 0); // Black stroke
+    
+    doc.fontSize(20)
+       .font('Helvetica-Bold')
+       .fillColor(0, 0, 0); // Ensure black
+    
+    console.log("Writing title at Y:", finalY, "contentStartX:", contentStartX, "contentWidth:", contentWidth);
+    
+    // First line: "COUNSELING RECORDS"
+    doc.text("COUNSELING RECORDS", contentStartX, finalY, { 
+      width: contentWidth, 
+      align: 'center',
+      lineGap: 0
+    });
+    console.log("Wrote 'COUNSELING RECORDS' at Y:", finalY);
+    finalY += 28;
+    
+    // Second line: "REPORT"
+    doc.fillColor(0, 0, 0); // Ensure black again
+    doc.text("REPORT", contentStartX, finalY, { 
+      width: contentWidth, 
+      align: 'center',
+      lineGap: 0
+    });
+    console.log("Wrote 'REPORT' at Y:", finalY);
+    finalY += 35;
+    
+    // Add a separator line after title
+    doc.strokeColor(200, 200, 200)
+       .lineWidth(1)
+       .moveTo(contentStartX, finalY - 5)
+       .lineTo(contentStartX + contentWidth, finalY - 5)
+       .stroke();
+    finalY += 20;
+
+    // Client Details Section - Formatted like a table
+    const labelWidth = 130;
+    const valueStartX = contentStartX + labelWidth;
+    
+    // Force black color for all content - CRITICAL
+    doc.fillColor('black'); // Use string format as backup
+    doc.fillColor(0, 0, 0); // Then use RGB
+    
+    // Client Name
+    doc.fontSize(11)
+       .font('Helvetica-Bold')
+       .fillColor(0, 0, 0);
+    doc.text("Client Name:", contentStartX, finalY);
+    doc.font('Helvetica')
+       .fillColor(0, 0, 0);
+    const clientNameValue = String(recordData.clientName || "N/A");
+    doc.text(clientNameValue, valueStartX, finalY);
+    finalY += 22;
+    
+    // Date
+    doc.font('Helvetica-Bold')
+       .fillColor(0, 0, 0);
+    doc.text("Date:", contentStartX, finalY);
+    doc.font('Helvetica')
+       .fillColor(0, 0, 0);
+    const dateValue = recordData.date ? new Date(recordData.date).toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    }) : "N/A";
+    doc.text(dateValue, valueStartX, finalY);
+    finalY += 22;
+    
+    // Session Number
+    if (recordData.sessionNumber) {
+      doc.font('Helvetica-Bold')
+         .fillColor(0, 0, 0);
+      doc.text("Session Number:", contentStartX, finalY);
+      doc.font('Helvetica')
+         .fillColor(0, 0, 0);
+      doc.text(String(recordData.sessionNumber), valueStartX, finalY);
+      finalY += 22;
+    }
+    
+    // Session Type
+    doc.font('Helvetica-Bold')
+       .fillColor(0, 0, 0);
+    doc.text("Session Type:", contentStartX, finalY);
+    doc.font('Helvetica')
+       .fillColor(0, 0, 0);
+    doc.text(String(recordData.sessionType || "N/A"), valueStartX, finalY);
+    finalY += 22;
+    
+    // Status
+    doc.font('Helvetica-Bold')
+       .fillColor(0, 0, 0);
+    doc.text("Status:", contentStartX, finalY);
+    doc.font('Helvetica')
+       .fillColor(0, 0, 0);
+    doc.text(String(recordData.status || "N/A"), valueStartX, finalY);
+    finalY += 22;
+    
+    // Counselor
+    doc.font('Helvetica-Bold')
+       .fillColor(0, 0, 0);
+    doc.text("Counselor:", contentStartX, finalY);
+    doc.font('Helvetica')
+       .fillColor(0, 0, 0);
+    doc.text(String(recordData.counselor || "Unknown Counselor"), valueStartX, finalY);
+    finalY += 30;
+
+    // Session Notes Section - explicitly black
+    doc.fillColor(0, 0, 0);
+    doc.fontSize(14)
+       .font('Helvetica-Bold')
+       .text("Session Notes:", contentStartX, finalY);
+    finalY += 25;
+    
+    const notesText = record.notes || "No notes available.";
+    
+    // Check if we need a new page for notes
+    const estimatedNotesHeight = doc.heightOfString(notesText || "No notes available.", {
+      width: contentWidth,
+      lineGap: 5
+    });
+    const maxContentY = pageHeight - marginBottom - footerHeight - 80;
+    
+    if (finalY + estimatedNotesHeight + 100 > maxContentY) {
+      // Add new page if needed
+      doc.addPage();
+      addRecordHeaderFooter(doc, 2, 2, trackingNumber, reportDate);
+      finalY = contentStartY;
+    }
+    
+    // Notes text - explicitly black
+    doc.fillColor(0, 0, 0);
+    doc.fontSize(11)
+       .font('Helvetica')
+       .text(notesText, contentStartX, finalY, { 
+         width: contentWidth,
+         align: 'left',
+         lineGap: 5
+       });
+    
+    const notesHeight = doc.heightOfString(notesText, {
+      width: contentWidth,
+      lineGap: 5
+    });
+    finalY += notesHeight + 30;
+
+    // Outcomes Section - explicitly black
+    doc.fillColor(0, 0, 0);
+    doc.fontSize(14)
+       .font('Helvetica-Bold')
+       .text("Outcomes:", contentStartX, finalY);
+    finalY += 25;
+    
+    const outcomeText = record.outcomes || record.outcome || "No outcome recorded.";
+    
+    // Check if we need a new page for outcomes
+    const estimatedOutcomeHeight = doc.heightOfString(outcomeText || "No outcome recorded.", {
+      width: contentWidth,
+      lineGap: 5
+    });
+    
+    if (finalY + estimatedOutcomeHeight + 100 > maxContentY) {
+      // Add new page if needed
+      doc.addPage();
+      addRecordHeaderFooter(doc, 2, 2, trackingNumber, reportDate);
+      finalY = contentStartY;
+    }
+    
+    // Outcome text - explicitly black
+    doc.fillColor(0, 0, 0);
+    doc.fontSize(11)
+       .font('Helvetica')
+       .text(outcomeText, contentStartX, finalY, { 
+         width: contentWidth,
+         align: 'left',
+         lineGap: 5
+       });
+
+    // Log what was generated
+    console.log("✅ PDF content generated:", {
+      hasNotes: !!record.notes,
+      notesLength: recordData.notes?.length || 0,
+      hasOutcomes: !!recordData.outcomes,
+      outcomesLength: recordData.outcomes?.length || 0,
+      finalY
+    });
+
+    // Finalize PDF
+    doc.end();
+
+    // Log activity (optional)
+    console.log(`✅ PDF generated for record: ${recordData._id}`);
+  } catch (err) {
+    console.error("❌ PDF generation error:", err);
+    console.error("❌ Error stack:", err.stack);
+    if (!res.headersSent) {
+      return res.status(500).json({ 
+        error: err.message || "Failed to generate PDF. Please try again.",
+        details: process.env.NODE_ENV === 'development' ? err.stack : undefined
+      });
+    } else {
+      // Headers already sent, can't send JSON response
+      console.error("❌ Cannot send error response - headers already sent");
+      res.end();
+    }
   }
 };
 

@@ -46,10 +46,10 @@ export const getCounselorNotifications = async (req, res) => {
       ];
     }
 
-    // Get notifications with pagination, sorted by priority and date
+    // Get notifications with pagination, sorted by date (newest first), then by priority
     console.log("🔍 Query for notifications:", JSON.stringify(query, null, 2));
     const notifications = await CounselorNotification.find(query)
-      .sort({ priority: -1, createdAt: -1 }) // Critical first, then by date
+      .sort({ createdAt: -1, priority: -1 }) // Newest first, then by priority
       .skip(skip)
       .limit(parseInt(limit))
       .lean();
