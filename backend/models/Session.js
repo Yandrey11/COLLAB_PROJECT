@@ -48,8 +48,8 @@ const sessionSchema = new mongoose.Schema(
 );
 
 // Index for faster queries
+// Note: token already has an index from unique: true
 sessionSchema.index({ userId: 1, isActive: 1 });
-sessionSchema.index({ token: 1 });
 sessionSchema.index({ lastActivity: 1 });
 
 const Session = mongoose.models.Session || mongoose.model("Session", sessionSchema);

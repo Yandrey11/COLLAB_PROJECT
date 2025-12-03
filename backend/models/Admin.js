@@ -33,6 +33,14 @@ const adminSchema = new mongoose.Schema(
         maskNameInNotifications: { type: Boolean, default: false },
       },
     },
+    // RBAC Permissions - Admins have all permissions by default
+    permissions: {
+      can_view_records: { type: Boolean, default: true },
+      can_edit_records: { type: Boolean, default: true },
+      can_view_reports: { type: Boolean, default: true },
+      can_generate_reports: { type: Boolean, default: true },
+      is_admin: { type: Boolean, default: true },
+    },
   },
   { timestamps: true }
 );
@@ -57,6 +65,24 @@ adminSchema.pre("save", async function (next) {
 adminSchema.methods.matchPassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
+
+// ✅ Helper method to check permission (admins always have all permissions)
+adminSchema.methods.hasPermission = function (permission) {
+  return true; // Admins have all permissions
+};
+
+// ✅ Ensure admin permissions are set correctly
+adminSchema.pre("save", async function (next) {
+  if (!this.permissions) {
+    this.permissions = {};
+  }
+  this.permissions.is_admin = true;
+  this.permissions.can_view_records = true;
+  this.permissions.can_edit_records = true;
+  this.permissions.can_view_reports = true;
+  this.permissions.can_generate_reports = true;
+  next();
+});
 
 const Admin = mongoose.model("Admin", adminSchema);
 export default Admin;

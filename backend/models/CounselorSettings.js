@@ -16,7 +16,6 @@ const counselorSettingsSchema = new mongoose.Schema(
     userEmail: {
       type: String,
       required: true,
-      index: true,
     },
 
     // Display & Interface Settings

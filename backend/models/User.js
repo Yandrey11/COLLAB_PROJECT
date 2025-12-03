@@ -25,12 +25,40 @@ const userSchema = new mongoose.Schema(
     profilePicture: { type: String, default: null },
     phoneNumber: { type: String },
     bio: { type: String, maxLength: 500 },
+    // RBAC Permissions
+    permissions: {
+      can_view_records: { type: Boolean, default: true },
+      can_edit_records: { type: Boolean, default: true },
+      can_view_reports: { type: Boolean, default: true },
+      can_generate_reports: { type: Boolean, default: false },
+      is_admin: { type: Boolean, default: false },
+    },
   },
   { timestamps: true }
 );
 
 // ✅ Hash password ONLY if modified and not already hashed
 userSchema.pre("save", async function (next) {
+  // Set permissions based on role
+  if (this.role === "admin") {
+    if (!this.permissions) {
+      this.permissions = {};
+    }
+    this.permissions.is_admin = true;
+  }
+  
+  // Set default permissions for new users if not set
+  if (this.isNew && !this.permissions) {
+    this.permissions = {
+      can_view_records: true,
+      can_edit_records: true,
+      can_view_reports: true,
+      can_generate_reports: false,
+      is_admin: this.role === "admin",
+    };
+  }
+  
+  // Hash password if modified
   if (!this.isModified("password")) return next();
   
   // Safeguard: Check if password is already hashed (starts with bcrypt hash prefix)
@@ -49,6 +77,15 @@ userSchema.pre("save", async function (next) {
 // ✅ Compare password for login
 userSchema.methods.matchPassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
+};
+
+// ✅ Helper method to check permission
+userSchema.methods.hasPermission = function (permission) {
+  // Admins have all permissions
+  if (this.role === "admin" || this.permissions?.is_admin) {
+    return true;
+  }
+  return this.permissions?.[permission] === true;
 };
 
 // ✅ Prevent OverwriteModelError
