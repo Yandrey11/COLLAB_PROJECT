@@ -7,6 +7,10 @@ import {
   deleteUser,
   resetUserPassword,
 } from "../../controllers/admin/userManagementController.js";
+import {
+  getUserPermissions,
+  updateUserPermissions,
+} from "../../controllers/admin/permissionController.js";
 import { protectAdmin } from "../../middleware/admin/adminMiddleware.js";
 
 const router = express.Router();
@@ -31,6 +35,13 @@ router.delete("/users/:userId", deleteUser);
 
 // Reset user password (admin-initiated)
 router.post("/users/:userId/reset-password", resetUserPassword);
+
+// RBAC Permission Management
+// Get user permissions
+router.get("/users/:userId/permissions", getUserPermissions);
+
+// Update user permissions
+router.put("/users/:userId/permissions", updateUserPermissions);
 
 export default router;
 
