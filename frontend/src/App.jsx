@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Landing from "./pages/Landing";
+import AboutUs from "./pages/AboutUs";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -16,6 +17,9 @@ import AdminNotificationCenter from "./pages/Admin/NotificationCenter";
 import AdminRecordManagement from "./pages/Admin/AdminRecordManagement";
 import AdminProfilePage from "./pages/Admin/AdminProfilePage";
 import AdminSettingsPage from "./pages/Admin/AdminSettingsPage";
+import BackupRestore from "./pages/Admin/BackupRestore";
+import Analytics from "./pages/Admin/Analytics";
+import AdminReports from "./pages/Admin/AdminReports";
 
 import RecordsPage from "./pages/RecordsPage";
 import ReportsPage from "./pages/ReportsPage";
@@ -31,6 +35,7 @@ function App() {
       <RouteLoadingBar />
       <Routes>
         <Route path="/" element={<Landing />} />
+        <Route path="/about" element={<AboutUs />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -51,6 +56,9 @@ function App() {
         <Route path="/admin/users" element={<UserManagement />} />
         <Route path="/admin/notifications" element={<AdminNotificationCenter />} />
         <Route path="/admin/records" element={<AdminRecordManagement />} />
+        <Route path="/admin/backups" element={<BackupRestore />} />
+        <Route path="/admin/analytics" element={<Analytics />} />
+        <Route path="/admin/reports" element={<AdminReports />} />
         <Route path="/admin/profile" element={<AdminProfilePage />} />
         <Route path="/admin/settings" element={<AdminSettingsPage />} />
       </Routes>
