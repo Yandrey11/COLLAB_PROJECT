@@ -30,7 +30,8 @@ const AdminSignup = () => {
         setSuccess("");
 
         try {
-            const res = await axios.post("http://localhost:5000/api/admin/signup", formData);
+            const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
+            const res = await axios.post(`${baseUrl}/api/admin/signup`, formData);
             
             // If token is returned, store it and redirect to dashboard
             if (res.data.token) {

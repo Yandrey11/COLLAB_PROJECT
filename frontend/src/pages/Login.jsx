@@ -12,8 +12,8 @@ function Login() {
   const [recaptchaToken, setRecaptchaToken] = useState(null);
   const navigate = useNavigate();
 
-  // ✅ Your reCAPTCHA site key
-  const SITE_KEY = "6Lf-8vErAAAAAGohFk-EE6OaLY60jkwo1gTH05B7";
+  // ✅ Your reCAPTCHA site key (from environment variable)
+  const SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || "6Lf-8vErAAAAAGohFk-EE6OaLY60jkwo1gTH05B7";
 
   // ✅ Check for error messages from URL (e.g., from Google OAuth failure)
   useEffect(() => {

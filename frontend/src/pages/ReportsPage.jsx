@@ -6,10 +6,11 @@ import "jspdf-autotable";
 import { motion, AnimatePresence } from "framer-motion";
 import Swal from "sweetalert2";
 import { NotificationBadgeBadge } from "../components/NotificationBadge";
+import CounselorSidebar from "../components/CounselorSidebar";
 import { initializeTheme } from "../utils/themeUtils";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
 
-const API_URL = `${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api/records`;
+const API_URL = `${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api/reports`;
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 // Helper function to get full image URL from backend
@@ -38,26 +39,59 @@ const ReportsPage = () => {
   const [error, setError] = useState("");
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
+  const [hasPermission, setHasPermission] = useState(true); // Default to true for backwards compatibility
+  const [canGenerateReports, setCanGenerateReports] = useState(false); // Track can_generate_reports permission
 
   // ✅ Fetch records from backend
   const fetchRecords = async () => {
-    setLoading(true);
-    setError("");
     try {
+      setLoading(true);
+      setError("");
+      const token = localStorage.getItem("token") || localStorage.getItem("authToken");
+      
+      if (!token) {
+        console.error("No token found for fetching records");
+        setError("Not authorized, no token");
+        setRecords([]);
+        setFilteredRecords([]);
+        setLoading(false);
+        return;
+      }
+
       const res = await axios.get(API_URL, {
         headers: {
-          'Content-Type': 'application/json',
-          // Add auth token if needed
-          // 'Authorization': `Bearer ${localStorage.getItem('token')}`
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         }
       });
+      
       setRecords(res.data || []);
       setFilteredRecords(res.data || []);
     } catch (err) {
       console.error("Error fetching records:", err);
-      setError(err.response?.data?.message || "Failed to load records");
+      
+      // Show error message to user
+      if (err.response?.status === 403) {
+        const errorMessage = err.response?.data?.message || "You don't have permission to view reports. Please contact an administrator.";
+        setError(errorMessage);
+        setHasPermission(false); // Also update permission state to show error page
+      } else if (err.response?.status === 401) {
+        setError("Not authorized, no token");
+        Swal.fire({
+          icon: "error",
+          title: "Authentication Error",
+          text: "Please log in again.",
+        });
+        navigate("/login");
+      } else {
+        setError(err.response?.data?.message || "Failed to load records");
+      }
+      
+      setRecords([]);
+      setFilteredRecords([]);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   // Initialize theme on mount
@@ -65,17 +99,142 @@ const ReportsPage = () => {
     initializeTheme();
   }, []);
 
-  // Load user from localStorage
+  // Helper function to check and set permissions from user data
+  const checkPermissions = (userData) => {
+    if (!userData) {
+      setCanGenerateReports(false);
+      setHasPermission(false);
+      return;
+    }
+
+    const userPermissions = userData.permissions || {};
+    const isAdmin = userData.role === "admin" || userPermissions.is_admin === true;
+    const canViewReports = isAdmin || userPermissions.can_view_reports === true;
+    
+    // Check if permissions field exists
+    const hasPermissionField = userPermissions && Object.keys(userPermissions).length > 0;
+    const hasAccess = !hasPermissionField || canViewReports;
+    
+    setHasPermission(hasAccess);
+    
+    // Set can_generate_reports permission
+    // Admins always can generate reports
+    // If permissions field doesn't exist, allow (backwards compatibility)
+    // If permissions field exists, only allow if explicitly true
+    if (isAdmin) {
+      setCanGenerateReports(true);
+    } else if (!hasPermissionField) {
+      // Backwards compatibility: if permissions don't exist, allow
+      setCanGenerateReports(true);
+    } else {
+      // Explicitly check if permission is true
+      // Hide button if false, undefined, or not set
+      const canGenerate = userPermissions.can_generate_reports === true;
+      setCanGenerateReports(canGenerate);
+    }
+  };
+
+  // Fetch user info from backend
+  const fetchUserInfo = async () => {
+    try {
+      const token = localStorage.getItem("token") || localStorage.getItem("authToken");
+      if (!token) {
+        console.warn("No token found");
+        setUser(null);
+        return;
+      }
+      
+      const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
+      const res = await axios.get(`${baseUrl}/api/auth/me`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      // Handle different response structures
+      const userData = res.data.user || res.data;
+      
+      // Ensure we have name or email before setting user
+      if (userData && (userData.name || userData.email)) {
+        setUser(userData);
+        localStorage.setItem("user", JSON.stringify(userData));
+        
+        // Check permissions immediately
+        checkPermissions(userData);
+        
+        // Check for error messages
+        const userPermissions = userData.permissions || {};
+        const hasPermissionField = userPermissions && Object.keys(userPermissions).length > 0;
+        const isAdmin = userData.role === "admin" || userPermissions.is_admin === true;
+        const canViewReports = isAdmin || userPermissions.can_view_reports === true;
+        
+        // If no permission, set error message (don't redirect - show error on page)
+        if (hasPermissionField && !canViewReports) {
+          setError("You don't have permission to access the Reports page. Please contact an administrator.");
+        }
+        
+        // Also ensure token is stored consistently
+        if (!localStorage.getItem("token") && localStorage.getItem("authToken")) {
+          localStorage.setItem("token", localStorage.getItem("authToken"));
+        }
+        if (!localStorage.getItem("authToken") && localStorage.getItem("token")) {
+          localStorage.setItem("authToken", localStorage.getItem("token"));
+        }
+      } else {
+        console.warn("User data incomplete:", userData);
+        setUser(null);
+      }
+    } catch (err) {
+      console.error("Error fetching user info:", err);
+      // If token is invalid, clear everything
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("authToken");
+        localStorage.removeItem("user");
+        setUser(null);
+      }
+    }
+  };
+
+  // Load user from localStorage or fetch from backend
   useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch (err) {
-        console.error("Error parsing user data:", err);
+    // Always fetch fresh user info if we have a token
+    const storedToken = localStorage.getItem("token") || localStorage.getItem("authToken");
+    
+    if (storedToken) {
+      // Fetch fresh user info from backend to ensure we have the latest data
+      fetchUserInfo();
+    } else {
+      // No token, check if there's stored user data (fallback)
+      const storedUser = localStorage.getItem("user");
+      if (storedUser) {
+        try {
+          const parsedUser = JSON.parse(storedUser);
+          // Only use stored user if it has name or email
+          if (parsedUser.name || parsedUser.email) {
+            setUser(parsedUser);
+            // Check permissions from stored user
+            checkPermissions(parsedUser);
+          } else {
+            setUser(null);
+            checkPermissions(null);
+          }
+        } catch (err) {
+          console.error("Error parsing user data:", err);
+          setUser(null);
+          checkPermissions(null);
+        }
+      } else {
+        setUser(null);
+        checkPermissions(null);
       }
     }
   }, []);
+
+  // Check permissions whenever user changes
+  useEffect(() => {
+    if (user) {
+      checkPermissions(user);
+    }
+  }, [user]);
 
   // Fetch profile data
   useEffect(() => {
@@ -104,9 +263,49 @@ const ReportsPage = () => {
     }
   }, [user]);
 
+  // Fetch records after user is loaded and has permission
   useEffect(() => {
-    fetchRecords();
-  }, []);
+    const token = localStorage.getItem("token") || localStorage.getItem("authToken");
+    if (token && user && hasPermission) {
+      fetchRecords();
+    }
+  }, [user, hasPermission]);
+  
+  // Show error page if no permission (after user is loaded)
+  if (user && !hasPermission) {
+    return (
+      <div className="min-h-screen w-full flex flex-col items-center bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 font-sans p-4 md:p-8 gap-6">
+        <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-6">
+          {/* Left: Sidebar */}
+          <CounselorSidebar />
+          
+          {/* Right: Error Message */}
+          <div className="w-full flex items-center justify-center">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-lg max-w-lg w-full text-center"
+            >
+              <div className="text-6xl mb-4">🚫</div>
+              <h1 className="text-2xl font-bold text-red-600 dark:text-red-400 mb-2">Access Denied</h1>
+              <p className="text-gray-600 dark:text-gray-400 mb-6 text-lg">
+                You don't have permission to access the Reports page.
+              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-500 mb-8">
+                Your access to this page has been restricted by an administrator. Please contact your administrator if you believe this is an error.
+              </p>
+              <button
+                onClick={() => navigate("/dashboard")}
+                className="px-6 py-3 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors"
+              >
+                Go to Dashboard
+              </button>
+            </motion.div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // ✅ Filter records based on search criteria
   const handleFilter = () => {
@@ -424,109 +623,9 @@ const ReportsPage = () => {
 
   return (
     <div className="min-h-screen w-full flex flex-col items-center bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 font-sans p-4 md:p-8 gap-6">
-      <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-6">
+      <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-6">
         {/* Left: Overview / Navigation */}
-        <aside className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm h-fit lg:sticky lg:top-6">
-          {/* Profile Picture and Name */}
-          <div className="flex flex-col items-center gap-2 mb-6 pb-6 border-b border-gray-200 dark:border-gray-700">
-            {profile?.profilePicture ? (
-              <img
-                src={getImageUrl(profile.profilePicture)}
-                alt="Profile"
-                className="w-16 h-16 rounded-full object-cover border-2 border-indigo-200"
-                onError={(e) => {
-                  e.target.style.display = "none";
-                }}
-              />
-            ) : (
-              <div className="w-16 h-16 rounded-full bg-indigo-100 border-2 border-indigo-200 flex items-center justify-center">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="w-8 h-8 text-indigo-600"
-                >
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                  <circle cx="12" cy="7" r="4"></circle>
-                </svg>
-              </div>
-            )}
-            <div className="text-center">
-              <div className="font-bold text-gray-900 dark:text-gray-100 text-base">{user?.name || profile?.name || "Counselor"}</div>
-            </div>
-          </div>
-
-          <h2 className="text-xl font-bold text-indigo-600 dark:text-indigo-400 m-0">Guidance Dashboard</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-            The Dashboard provides counselors with an at-a-glance view of personal schedules, sessions,
-            meetings, and planned activities for the current day or week.
-          </p>
-
-          <div className="flex flex-col gap-3 mt-6">
-            <button
-              onClick={() => navigate("/dashboard")}
-              className="p-3 rounded-xl border border-indigo-50 dark:border-gray-700 bg-gradient-to-r from-white to-slate-50 dark:from-gray-800 dark:to-gray-700 hover:to-white dark:hover:to-gray-700 text-gray-900 dark:text-gray-100 font-semibold text-left transition-all"
-            >
-              Dashboard
-            </button>
-            <button
-              onClick={() => navigate("/records")}
-              className="p-3 rounded-xl border border-indigo-50 dark:border-gray-700 bg-gradient-to-r from-white to-slate-50 dark:from-gray-800 dark:to-gray-700 hover:to-white dark:hover:to-gray-700 text-gray-900 dark:text-gray-100 font-semibold text-left transition-all"
-            >
-              Records Page
-            </button>
-            <button
-              onClick={() => navigate("/reports")}
-              className="p-3 rounded-xl border border-indigo-50 dark:border-gray-700 bg-gradient-to-r from-indigo-50 to-white dark:from-indigo-900/30 dark:to-gray-800 hover:from-white hover:to-indigo-50 dark:hover:from-gray-800 dark:hover:to-indigo-900/30 text-white font-semibold text-left transition-all"
-              style={{ background: "linear-gradient(90deg, #4f46e5, #7c3aed)", color: "#fff" }}
-            >
-              Reports Page
-            </button>
-            <button
-              onClick={() => navigate("/notifications")}
-              className="p-3 rounded-xl border border-indigo-50 dark:border-gray-700 bg-gradient-to-r from-white to-slate-50 dark:from-gray-800 dark:to-gray-700 hover:from-indigo-50 hover:to-white dark:hover:from-gray-700 dark:hover:to-gray-800 hover:shadow-sm text-gray-900 dark:text-gray-100 font-semibold text-left transition-all relative"
-            >
-              <span>Notification Center</span>
-              <span className="absolute top-1 right-1">
-                <NotificationBadgeBadge />
-              </span>
-            </button>
-                <button
-                  onClick={() => navigate("/profile")}
-                  className="p-3 rounded-xl border border-indigo-50 dark:border-gray-700 bg-gradient-to-r from-white to-slate-50 dark:from-gray-800 dark:to-gray-700 hover:to-white dark:hover:to-gray-700 text-gray-900 dark:text-gray-100 font-semibold text-left transition-all"
-                >
-                  User Profile & Settings
-                </button>
-
-                <div className="flex gap-2 mt-4">
-              <button
-                onClick={handleRefresh}
-                className="flex-1 p-2.5 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition-colors"
-              >
-                Refresh Data
-              </button>
-              <button
-                onClick={handleLogout}
-                className="p-2.5 rounded-xl bg-red-500 text-white font-semibold hover:bg-red-600 transition-colors"
-              >
-                Logout
-              </button>
-            </div>
-
-            <div className="mt-4 text-xs text-gray-500 dark:text-gray-400">
-              Data Synchronization:
-              <div className="mt-1">
-                The dashboard listens for changes to stored user data and will update automatically across
-                browser contexts. For backend-driven real-time updates, server-side events or websockets
-                would be used (not modified here).
-              </div>
-            </div>
-          </div>
-        </aside>
+        <CounselorSidebar />
 
         {/* Right: Main content */}
         <main className="w-full">
@@ -621,29 +720,31 @@ const ReportsPage = () => {
             >
               {loading ? "⏳ Loading..." : "📊 Filter Records"}
             </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={handleDownloadPDF}
-              disabled={filteredRecords.length === 0}
-              style={{
-                background: "linear-gradient(90deg, #10b981, #059669)",
-                color: "white",
-                padding: "12px 20px",
-                borderRadius: 10,
-                border: "none",
-                cursor: filteredRecords.length === 0 ? "not-allowed" : "pointer",
-                fontWeight: 600,
-                fontSize: 14,
-                boxShadow: "0 4px 12px rgba(16, 185, 129, 0.3)",
-                opacity: filteredRecords.length === 0 ? 0.5 : 1,
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-              }}
-            >
-              📥 Download PDF
-            </motion.button>
+            {canGenerateReports && (
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={handleDownloadPDF}
+                disabled={filteredRecords.length === 0}
+                style={{
+                  background: "linear-gradient(90deg, #10b981, #059669)",
+                  color: "white",
+                  padding: "12px 20px",
+                  borderRadius: 10,
+                  border: "none",
+                  cursor: filteredRecords.length === 0 ? "not-allowed" : "pointer",
+                  fontWeight: 600,
+                  fontSize: 14,
+                  boxShadow: "0 4px 12px rgba(16, 185, 129, 0.3)",
+                  opacity: filteredRecords.length === 0 ? 0.5 : 1,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+              >
+                📥 Download PDF
+              </motion.button>
+            )}
           </div>
 
           {error && (
@@ -888,24 +989,26 @@ const ReportsPage = () => {
                 >
                   Cancel
                 </motion.button>
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={handleDownloadPDF}
-                  style={{
-                    background: "linear-gradient(90deg, #10b981, #059669)",
-                    color: "white",
-                    padding: "10px 20px",
-                    borderRadius: 10,
-                    border: "none",
-                    cursor: "pointer",
-                    fontWeight: 600,
-                    fontSize: 14,
-                    boxShadow: "0 4px 12px rgba(16, 185, 129, 0.3)",
-                  }}
-                >
-                  Download PDF
-                </motion.button>
+                {canGenerateReports && (
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={handleDownloadPDF}
+                    style={{
+                      background: "linear-gradient(90deg, #10b981, #059669)",
+                      color: "white",
+                      padding: "10px 20px",
+                      borderRadius: 10,
+                      border: "none",
+                      cursor: "pointer",
+                      fontWeight: 600,
+                      fontSize: 14,
+                      boxShadow: "0 4px 12px rgba(16, 185, 129, 0.3)",
+                    }}
+                  >
+                    Download PDF
+                  </motion.button>
+                )}
               </div>
             </motion.div>
           </motion.div>

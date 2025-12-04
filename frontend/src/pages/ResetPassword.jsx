@@ -54,7 +54,8 @@ export default function ResetPassword() {
         ? { email, token, newPassword }
         : { email, code, newPassword };
 
-      const res = await axios.post("http://localhost:5000/api/reset/reset-password", payload);
+      const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
+      const res = await axios.post(`${baseUrl}/api/reset/reset-password`, payload);
 
       setMessage(res.data.message || "Password reset successful!");
       setTimeout(() => navigate("/login"), 2000);

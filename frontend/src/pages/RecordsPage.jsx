@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 import { NotificationBadgeBadge } from "../components/NotificationBadge";
+import CounselorSidebar from "../components/CounselorSidebar";
 import { initializeTheme } from "../utils/themeUtils";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
 
@@ -78,6 +79,7 @@ const RecordsPage = () => {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [driveMessage, setDriveMessage] = useState(null);
+  const [hasPermission, setHasPermission] = useState(true); // Default to true for backwards compatibility
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
 
@@ -144,6 +146,26 @@ const RecordsPage = () => {
     initializeTheme(); // Initialize theme on page load
   }, []);
 
+  // Helper function to check and set permissions from user data
+  const checkPermissions = (userData) => {
+    if (!userData) {
+      setHasPermission(false);
+      setLoading(false);
+      return;
+    }
+
+    const userPermissions = userData.permissions || {};
+    const isAdmin = userData.role === "admin" || userPermissions.is_admin === true;
+    const canViewRecords = isAdmin || userPermissions.can_view_records === true;
+    
+    // Check if permissions field exists
+    const hasPermissionField = userPermissions && Object.keys(userPermissions).length > 0;
+    const hasAccess = !hasPermissionField || canViewRecords;
+    
+    setHasPermission(hasAccess);
+    setLoading(false);
+  };
+
   useEffect(() => {
     // Always fetch fresh user info if we have a token
     const storedToken = localStorage.getItem("token") || localStorage.getItem("authToken");
@@ -160,18 +182,29 @@ const RecordsPage = () => {
           // Only use stored user if it has name or email
           if (parsedUser.name || parsedUser.email) {
             setUser(parsedUser);
+            checkPermissions(parsedUser);
           } else {
             setUser(null);
+            checkPermissions(null);
           }
         } catch (err) {
           console.error("Error parsing user data:", err);
           setUser(null);
+          checkPermissions(null);
         }
       } else {
         setUser(null);
+        checkPermissions(null);
       }
     }
   }, []);
+
+  // Check permissions whenever user changes
+  useEffect(() => {
+    if (user) {
+      checkPermissions(user);
+    }
+  }, [user]);
 
   // Fetch profile data
   useEffect(() => {
@@ -222,6 +255,9 @@ const RecordsPage = () => {
         setUser(userData);
         localStorage.setItem("user", JSON.stringify(userData));
         
+        // Check permissions immediately
+        checkPermissions(userData);
+        
         // Also ensure token is stored consistently
         if (!localStorage.getItem("token") && localStorage.getItem("authToken")) {
           localStorage.setItem("token", localStorage.getItem("authToken"));
@@ -232,6 +268,7 @@ const RecordsPage = () => {
       } else {
         console.warn("User data incomplete:", userData);
         setUser(null);
+        checkPermissions(null);
       }
     } catch (err) {
       console.error("Error fetching user info:", err);
@@ -246,9 +283,30 @@ const RecordsPage = () => {
   };
 
   const fetchRecords = async () => {
+    // Don't fetch if user doesn't have permission
+    if (user && !hasPermission) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
-      const res = await axios.get(API_URL);
+      const token = localStorage.getItem("token") || localStorage.getItem("authToken");
+      
+      if (!token) {
+        console.error("No token found for fetching records");
+        setRecords([]);
+        setLoading(false);
+        return;
+      }
+
+      const res = await axios.get(API_URL, {
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        }
+      });
+      
       setRecords(res.data || []);
       
       // Fetch lock status for each record
@@ -259,6 +317,24 @@ const RecordsPage = () => {
       }
     } catch (err) {
       console.error("Error fetching records:", err);
+      
+      // Show error message to user
+      if (err.response?.status === 403) {
+        const errorMessage = err.response?.data?.message || "You don't have permission to view records. Please contact an administrator.";
+        setHasPermission(false); // Update permission state to show error page
+        setLoading(false);
+      } else if (err.response?.status === 401) {
+        Swal.fire({
+          icon: "error",
+          title: "Authentication Error",
+          text: "Please log in again.",
+        });
+        navigate("/login");
+      } else {
+        console.error("Unexpected error:", err);
+      }
+      
+      setRecords([]);
     } finally {
       setLoading(false);
     }
@@ -372,8 +448,6 @@ const RecordsPage = () => {
   };
 
   useEffect(() => {
-    fetchRecords();
-    
     // Check for OAuth callback messages
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get("error") === "drive_connection_failed") {
@@ -386,6 +460,54 @@ const RecordsPage = () => {
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
+
+  // Fetch records after user is loaded and has permission
+  useEffect(() => {
+    const token = localStorage.getItem("token") || localStorage.getItem("authToken");
+    if (token && user && hasPermission) {
+      fetchRecords();
+    } else if (user && !hasPermission) {
+      // Stop loading if user doesn't have permission
+      setLoading(false);
+    }
+  }, [user, hasPermission]);
+  
+  // Show error page if no permission (after user is loaded)
+  // Show immediately when permission is denied
+  if (user && !hasPermission) {
+    return (
+      <div className="min-h-screen w-full flex flex-col items-center bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 font-sans p-4 md:p-8 gap-6">
+        <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-6">
+          {/* Left: Sidebar */}
+          <CounselorSidebar />
+          
+          {/* Right: Error Message */}
+          <div className="w-full flex items-center justify-center">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-lg max-w-lg w-full text-center"
+            >
+              <div className="text-6xl mb-4">🚫</div>
+              <h1 className="text-2xl font-bold text-red-600 dark:text-red-400 mb-2">Access Denied</h1>
+              <p className="text-gray-600 dark:text-gray-400 mb-6 text-lg">
+                You don't have permission to access the Records page.
+              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-500 mb-8">
+                Your access to this page has been restricted by an administrator. Please contact your administrator if you believe this is an error.
+              </p>
+              <button
+                onClick={() => navigate("/dashboard")}
+                className="px-6 py-3 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors"
+              >
+                Go to Dashboard
+              </button>
+            </motion.div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Fetch lock status when edit modal opens
   useEffect(() => {
@@ -826,109 +948,9 @@ const RecordsPage = () => {
 
   return (
     <div className="min-h-screen w-full flex flex-col items-center bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 font-sans p-4 md:p-8 gap-6">
-      <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-6">
+      <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-6">
         {/* Left: Overview / Navigation */}
-        <aside className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm h-fit lg:sticky lg:top-6">
-          {/* Profile Picture and Name */}
-          <div className="flex flex-col items-center gap-2 mb-6 pb-6 border-b border-gray-200 dark:border-gray-700">
-            {profile?.profilePicture ? (
-              <img
-                src={getImageUrl(profile.profilePicture)}
-                alt="Profile"
-                className="w-16 h-16 rounded-full object-cover border-2 border-indigo-200"
-                onError={(e) => {
-                  e.target.style.display = "none";
-                }}
-              />
-            ) : (
-              <div className="w-16 h-16 rounded-full bg-indigo-100 border-2 border-indigo-200 flex items-center justify-center">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="w-8 h-8 text-indigo-600"
-                >
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                  <circle cx="12" cy="7" r="4"></circle>
-                </svg>
-              </div>
-            )}
-            <div className="text-center">
-              <div className="font-bold text-gray-900 dark:text-gray-100 text-base">{user?.name || profile?.name || "Counselor"}</div>
-            </div>
-          </div>
-
-          <h2 className="text-xl font-bold text-indigo-600 dark:text-indigo-400 m-0">Guidance Dashboard</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-            The Dashboard provides counselors with an at-a-glance view of personal schedules, sessions,
-            meetings, and planned activities for the current day or week.
-          </p>
-
-          <div className="flex flex-col gap-3 mt-6">
-            <button
-              onClick={() => navigate("/dashboard")}
-              className="p-3 rounded-xl border border-indigo-50 dark:border-gray-700 bg-gradient-to-r from-white to-slate-50 dark:from-gray-800 dark:to-gray-700 hover:to-white dark:hover:to-gray-700 text-gray-900 dark:text-gray-100 font-semibold text-left transition-all"
-            >
-              Dashboard
-            </button>
-            <button
-              onClick={() => navigate("/records")}
-              className="p-3 rounded-xl border border-indigo-50 dark:border-gray-700 bg-gradient-to-r from-indigo-50 to-white dark:from-indigo-900/30 dark:to-gray-800 hover:from-white hover:to-indigo-50 dark:hover:from-gray-800 dark:hover:to-indigo-900/30 text-white font-semibold text-left transition-all"
-              style={{ background: "linear-gradient(90deg, #4f46e5, #7c3aed)", color: "#fff" }}
-            >
-              Records Page
-            </button>
-            <button
-              onClick={() => navigate("/reports")}
-              className="p-3 rounded-xl border border-indigo-50 dark:border-gray-700 bg-gradient-to-r from-white to-slate-50 dark:from-gray-800 dark:to-gray-700 hover:to-white dark:hover:to-gray-700 text-gray-900 dark:text-gray-100 font-semibold text-left transition-all"
-            >
-              Reports Page
-            </button>
-            <button
-              onClick={() => navigate("/notifications")}
-              className="p-3 rounded-xl border border-indigo-50 dark:border-gray-700 bg-gradient-to-r from-white to-slate-50 dark:from-gray-800 dark:to-gray-700 hover:from-indigo-50 hover:to-white dark:hover:from-gray-700 dark:hover:to-gray-800 hover:shadow-sm text-gray-900 dark:text-gray-100 font-semibold text-left transition-all relative"
-            >
-              <span>Notification Center</span>
-              <span className="absolute top-1 right-1">
-                <NotificationBadgeBadge />
-              </span>
-            </button>
-                <button
-                  onClick={() => navigate("/profile")}
-                  className="p-3 rounded-xl border border-indigo-50 dark:border-gray-700 bg-gradient-to-r from-white to-slate-50 dark:from-gray-800 dark:to-gray-700 hover:to-white dark:hover:to-gray-700 text-gray-900 dark:text-gray-100 font-semibold text-left transition-all"
-                >
-                  User Profile & Settings
-                </button>
-
-                <div className="flex gap-2 mt-4">
-              <button
-                onClick={handleRefresh}
-                className="flex-1 p-2.5 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition-colors"
-              >
-                Refresh Data
-              </button>
-              <button
-                onClick={handleLogout}
-                className="p-2.5 rounded-xl bg-red-500 text-white font-semibold hover:bg-red-600 transition-colors"
-              >
-                Logout
-              </button>
-            </div>
-
-            <div className="mt-4 text-xs text-gray-500 dark:text-gray-400">
-              Data Synchronization:
-              <div className="mt-1">
-                The dashboard listens for changes to stored user data and will update automatically across
-                browser contexts. For backend-driven real-time updates, server-side events or websockets
-                would be used (not modified here).
-              </div>
-            </div>
-          </div>
-        </aside>
+        <CounselorSidebar />
 
         {/* Right: Main content */}
         <main className="w-full">
@@ -1459,38 +1481,38 @@ const RecordsPage = () => {
                                 
                                 return (
                                   <>
-                                    <motion.button
-                                      whileHover={{ scale: canEdit ? 1.05 : 1 }}
-                                      whileTap={{ scale: canEdit ? 0.95 : 1 }}
-                                      onClick={async () => {
-                                        // Check lock status before opening edit modal
-                                        const currentLockStatus = await fetchLockStatus(record._id);
-                                        if (currentLockStatus.locked && !currentLockStatus.isLockOwner) {
-                                          Swal.fire({
-                                            icon: "warning",
-                                            title: "Record Locked",
-                                            text: `This record is locked by ${currentLockStatus.lockedBy?.userName || "another user"}. You cannot edit it.`,
-                                          });
-                                          return;
-                                        }
-                                        setSelectedRecord(record);
-                                      }}
-                                      disabled={!canEdit}
-                                      style={{
-                                        background: canEdit ? "#4f46e5" : "#9ca3af",
-                                        color: "white",
-                                        padding: "6px 12px",
-                                        borderRadius: 8,
-                                        border: "none",
-                                        cursor: canEdit ? "pointer" : "not-allowed",
-                                        fontSize: 13,
-                                        fontWeight: 600,
-                                        opacity: canEdit ? 1 : 0.6,
-                                      }}
-                                      title={!canEdit ? "Record is locked. Please unlock it first." : "Edit record"}
-                                    >
-                                      Edit
-                                    </motion.button>
+                                    {canEdit && (
+                                      <motion.button
+                                        whileHover={{ scale: 1.05 }}
+                                        whileTap={{ scale: 0.95 }}
+                                        onClick={async () => {
+                                          // Check lock status before opening edit modal
+                                          const currentLockStatus = await fetchLockStatus(record._id);
+                                          if (currentLockStatus.locked && !currentLockStatus.isLockOwner) {
+                                            Swal.fire({
+                                              icon: "warning",
+                                              title: "Record Locked",
+                                              text: `This record is locked by ${currentLockStatus.lockedBy?.userName || "another user"}. You cannot edit it.`,
+                                            });
+                                            return;
+                                          }
+                                          setSelectedRecord(record);
+                                        }}
+                                        style={{
+                                          background: "#4f46e5",
+                                          color: "white",
+                                          padding: "6px 12px",
+                                          borderRadius: 8,
+                                          border: "none",
+                                          cursor: "pointer",
+                                          fontSize: 13,
+                                          fontWeight: 600,
+                                        }}
+                                        title="Edit record"
+                                      >
+                                        Edit
+                                      </motion.button>
+                                    )}
                                     {!isLocked || isLockOwner ? (
                                       !isLocked ? (
                                         <motion.button
@@ -1678,10 +1700,10 @@ const RecordsPage = () => {
                           const isLockOwner = lockStatus?.isLockOwner;
                           const canEdit = !isLocked || isLockOwner;
                           
-                          return (
+                          return canEdit ? (
                             <motion.button
-                              whileHover={{ scale: canEdit ? 1.02 : 1 }}
-                              whileTap={{ scale: canEdit ? 0.98 : 1 }}
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
                               onClick={async () => {
                                 // Check lock status before opening edit modal
                                 const currentLockStatus = await fetchLockStatus(record._id);
@@ -1695,24 +1717,22 @@ const RecordsPage = () => {
                                 }
                                 setSelectedRecord(record);
                               }}
-                              disabled={!canEdit}
                               style={{
                                 flex: 1,
-                                background: canEdit ? "#4f46e5" : "#9ca3af",
+                                background: "#4f46e5",
                                 color: "white",
                                 padding: "10px",
                                 borderRadius: 8,
                                 border: "none",
-                                cursor: canEdit ? "pointer" : "not-allowed",
+                                cursor: "pointer",
                                 fontSize: 13,
                                 fontWeight: 600,
-                                opacity: canEdit ? 1 : 0.6,
                               }}
-                              title={!canEdit ? "Record is locked. Please unlock it first." : "Edit record"}
+                              title="Edit record"
                             >
                               Edit
                             </motion.button>
-                          );
+                          ) : null;
                         })()}
                         <motion.button
                           whileHover={{ scale: 1.02 }}

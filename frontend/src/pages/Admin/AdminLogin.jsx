@@ -27,7 +27,8 @@ export default function AdminLogin() {
 
     try {
       console.log("🔐 Attempting admin login for:", email);
-      const res = await axios.post("http://localhost:5000/api/admin/login", {
+      const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
+      const res = await axios.post(`${baseUrl}/api/admin/login`, {
         email,
         password,
         captchaToken,
@@ -76,7 +77,8 @@ export default function AdminLogin() {
   };
 
   const handleGoogleLogin = () => {
-    window.location.href = "http://localhost:5000/auth/admin/google";
+    const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
+    window.location.href = `${baseUrl}/auth/admin/google`;
   };
 
   return (

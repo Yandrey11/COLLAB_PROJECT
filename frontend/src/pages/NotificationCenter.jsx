@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import Swal from "sweetalert2";
 import { NotificationBadgeBadge } from "../components/NotificationBadge";
+import CounselorSidebar from "../components/CounselorSidebar";
 import { initializeTheme } from "../utils/themeUtils";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
 
@@ -421,122 +422,11 @@ export default function NotificationCenter() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 dark:border-indigo-400 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-300">Loading notifications...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen w-full flex flex-col items-center bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 font-sans p-4 md:p-8 gap-6">
-      <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-6">
+      <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-6">
         {/* Left: Overview / Navigation */}
-        <aside className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm h-fit lg:sticky lg:top-6">
-          {/* Profile Picture and Name */}
-          <div className="flex flex-col items-center gap-2 mb-6 pb-6 border-b border-gray-200 dark:border-gray-700">
-            {profile?.profilePicture ? (
-              <img
-                src={getImageUrl(profile.profilePicture)}
-                alt="Profile"
-                className="w-16 h-16 rounded-full object-cover border-2 border-indigo-200"
-                onError={(e) => {
-                  e.target.style.display = "none";
-                }}
-              />
-            ) : (
-              <div className="w-16 h-16 rounded-full bg-indigo-100 border-2 border-indigo-200 flex items-center justify-center">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="w-8 h-8 text-indigo-600"
-                >
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                  <circle cx="12" cy="7" r="4"></circle>
-                </svg>
-              </div>
-            )}
-            <div className="text-center">
-              <div className="font-bold text-gray-900 dark:text-gray-100 text-base">{user?.name || profile?.name || "Counselor"}</div>
-            </div>
-          </div>
-
-          <h2 className="text-xl font-bold text-indigo-600 dark:text-indigo-400 m-0">Guidance Dashboard</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-            The Dashboard provides counselors with an at-a-glance view of personal schedules, sessions,
-            meetings, and planned activities for the current day or week.
-          </p>
-
-          <div className="flex flex-col gap-3 mt-6">
-            <button
-              onClick={() => navigate("/dashboard")}
-              className="p-3 rounded-xl border border-indigo-50 dark:border-gray-700 bg-gradient-to-r from-white to-slate-50 dark:from-gray-800 dark:to-gray-700 hover:to-white dark:hover:to-gray-700 text-gray-900 dark:text-gray-100 font-semibold text-left transition-all"
-            >
-              Dashboard
-            </button>
-            <button
-              onClick={() => navigate("/records")}
-              className="p-3 rounded-xl border border-indigo-50 dark:border-gray-700 bg-gradient-to-r from-white to-slate-50 dark:from-gray-800 dark:to-gray-700 hover:to-white dark:hover:to-gray-700 text-gray-900 dark:text-gray-100 font-semibold text-left transition-all"
-            >
-              Records Page
-            </button>
-            <button
-              onClick={() => navigate("/reports")}
-              className="p-3 rounded-xl border border-indigo-50 dark:border-gray-700 bg-gradient-to-r from-white to-slate-50 dark:from-gray-800 dark:to-gray-700 hover:to-white dark:hover:to-gray-700 text-gray-900 dark:text-gray-100 font-semibold text-left transition-all"
-            >
-              Reports Page
-            </button>
-            <button
-              onClick={() => navigate("/notifications")}
-              className="p-3 rounded-xl border border-indigo-200 dark:border-indigo-700 text-white font-semibold text-left transition-all hover:shadow-md relative"
-              style={{ background: "linear-gradient(90deg, #4f46e5, #7c3aed)", color: "#fff" }}
-            >
-              <span>Notification Center</span>
-              <span className="absolute top-1 right-1">
-                <NotificationBadgeBadge />
-              </span>
-            </button>
-                <button
-                  onClick={() => navigate("/profile")}
-                  className="p-3 rounded-xl border border-indigo-50 dark:border-gray-700 bg-gradient-to-r from-white to-slate-50 dark:from-gray-800 dark:to-gray-700 hover:to-white dark:hover:to-gray-700 text-gray-900 dark:text-gray-100 font-semibold text-left transition-all"
-                >
-                  User Profile & Settings
-                </button>
-
-                <div className="flex gap-2 mt-4">
-              <button
-                onClick={handleRefresh}
-                className="flex-1 p-2.5 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition-colors"
-              >
-                Refresh Data
-              </button>
-              <button
-                onClick={handleLogout}
-                className="p-2.5 rounded-xl bg-red-500 text-white font-semibold hover:bg-red-600 transition-colors"
-              >
-                Logout
-              </button>
-            </div>
-
-            <div className="mt-4 text-xs text-gray-500 dark:text-gray-400">
-              Data Synchronization:
-              <div className="mt-1">
-                The dashboard listens for changes to stored user data and will update automatically across
-                browser contexts. For backend-driven real-time updates, server-side events or websockets
-                would be used (not modified here).
-              </div>
-            </div>
-          </div>
-        </aside>
+        <CounselorSidebar />
 
         {/* Right: Main content */}
         <main className="w-full">

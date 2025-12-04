@@ -7,7 +7,7 @@ import AdminSidebar from "../../components/AdminSidebar";
 import { initializeTheme } from "../../utils/themeUtils";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 
-const API_URL = "http://localhost:5000/api/admin/records";
+const API_URL = `${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api/admin/records`;
 
 export default function AdminRecordManagement() {
   useDocumentTitle("Admin Record Management");
@@ -65,11 +65,28 @@ export default function AdminRecordManagement() {
   const [showLockLogs, setShowLockLogs] = useState(false);
   const [lockLogs, setLockLogs] = useState([]);
   const [selectedRecordForLogs, setSelectedRecordForLogs] = useState(null);
+  
+  // Dropdown menu state
+  const [openDropdownId, setOpenDropdownId] = useState(null);
 
   // Initialize theme on mount
   useEffect(() => {
     initializeTheme();
   }, []);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (openDropdownId && !event.target.closest('.dropdown-container')) {
+        setOpenDropdownId(null);
+      }
+    };
+
+    if (openDropdownId) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [openDropdownId]);
 
   useEffect(() => {
     const token = localStorage.getItem("adminToken");
@@ -80,7 +97,7 @@ export default function AdminRecordManagement() {
 
     // Verify admin access
     axios
-      .get("http://localhost:5000/api/admin/dashboard", {
+      .get(`${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api/admin/dashboard`, {
         headers: { Authorization: `Bearer ${token}` },
       })
       .then((res) => {
@@ -420,7 +437,7 @@ export default function AdminRecordManagement() {
 
   return (
     <div className="min-h-screen w-full flex flex-col items-center bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 font-sans p-4 md:p-8 gap-6">
-      <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-6">
+      <div className="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-6">
         <AdminSidebar />
 
         <div className="flex flex-col gap-5">
@@ -724,62 +741,110 @@ export default function AdminRecordManagement() {
                         })()}
                       </td>
                       <td className="px-3 py-3 text-center">
-                        <div className="flex gap-1.5 justify-center flex-wrap">
+                        <div className="relative dropdown-container">
                           <button
-                            onClick={() => handleViewRecord(record)}
-                            className="px-3 py-1.5 rounded-lg bg-blue-500 hover:bg-blue-600 text-white font-semibold text-xs cursor-pointer transition-colors"
+                            onClick={() => setOpenDropdownId(openDropdownId === record._id ? null : record._id)}
+                            className="px-3 py-1.5 rounded-lg bg-gray-600 hover:bg-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 text-white font-semibold text-xs cursor-pointer transition-colors flex items-center gap-1"
                           >
-                            View
+                            Actions
+                            <svg
+                              className={`w-3 h-3 transition-transform ${openDropdownId === record._id ? 'rotate-180' : ''}`}
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
                           </button>
-                          {(() => {
-                            const lockStatus = lockStatuses[record._id];
-                            const isLocked = lockStatus?.locked;
-                            const isLockOwner = lockStatus?.isLockOwner;
-                            const canEdit = !isLocked || isLockOwner;
-                            
-                            return (
-                              <>
-                                <button
-                                  onClick={() => handleEditRecord(record)}
-                                  disabled={!canEdit}
-                                  className={`px-3 py-1.5 rounded-lg font-semibold text-xs cursor-pointer transition-colors ${
-                                    canEdit
-                                      ? "bg-green-500 hover:bg-green-600 text-white"
-                                      : "bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                                  }`}
-                                  title={!canEdit ? "Record is locked. Please unlock it first." : "Edit record"}
-                                >
-                                  Edit
-                                </button>
-                                {!isLocked || isLockOwner ? (
-                                  !isLocked ? (
-                                    <button
-                                      onClick={() => handleLockRecord(record)}
-                                      disabled={lockingRecordId === record._id}
-                                      className="px-3 py-1.5 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white font-semibold text-xs cursor-pointer transition-colors disabled:opacity-50"
-                                    >
-                                      {lockingRecordId === record._id ? "Locking..." : "🔒 Lock"}
-                                    </button>
-                                  ) : (
-                                    <button
-                                      onClick={() => handleUnlockRecord(record)}
-                                      disabled={unlockingRecordId === record._id}
-                                      className="px-3 py-1.5 rounded-lg bg-yellow-500 hover:bg-yellow-600 text-white font-semibold text-xs cursor-pointer transition-colors disabled:opacity-50"
-                                    >
-                                      {unlockingRecordId === record._id ? "Unlocking..." : "🔓 Unlock"}
-                                    </button>
-                                  )
-                                ) : null}
-                                <button
-                                  onClick={() => handleViewLockLogs(record)}
-                                  className="px-3 py-1.5 rounded-lg bg-purple-500 hover:bg-purple-600 text-white font-semibold text-xs cursor-pointer transition-colors"
-                                  title="View lock history"
-                                >
-                                  📋 Logs
-                                </button>
-                              </>
-                            );
-                          })()}
+                          
+                          <AnimatePresence>
+                            {openDropdownId === record._id && (
+                              <motion.div
+                                initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                                transition={{ duration: 0.2 }}
+                                className="absolute right-0 mt-1 w-40 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50 overflow-hidden"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <div className="flex flex-col">
+                                  <button
+                                    onClick={() => {
+                                      handleViewRecord(record);
+                                      setOpenDropdownId(null);
+                                    }}
+                                    className="px-4 py-2.5 bg-blue-500 hover:bg-blue-600 text-white font-semibold text-xs cursor-pointer transition-colors flex items-center gap-2"
+                                  >
+                                    <span>View</span>
+                                  </button>
+                                  {(() => {
+                                    const lockStatus = lockStatuses[record._id];
+                                    const isLocked = lockStatus?.locked;
+                                    const isLockOwner = lockStatus?.isLockOwner;
+                                    const canEdit = !isLocked || isLockOwner;
+                                    
+                                    return (
+                                      <>
+                                        <button
+                                          onClick={() => {
+                                            handleEditRecord(record);
+                                            setOpenDropdownId(null);
+                                          }}
+                                          disabled={!canEdit}
+                                          className={`px-4 py-2.5 font-semibold text-xs cursor-pointer transition-colors flex items-center gap-2 ${
+                                            canEdit
+                                              ? "bg-green-500 hover:bg-green-600 text-white"
+                                              : "bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                                          }`}
+                                          title={!canEdit ? "Record is locked. Please unlock it first." : "Edit record"}
+                                        >
+                                          <span>Edit</span>
+                                        </button>
+                                        {!isLocked || isLockOwner ? (
+                                          !isLocked ? (
+                                            <button
+                                              onClick={() => {
+                                                handleLockRecord(record);
+                                                setOpenDropdownId(null);
+                                              }}
+                                              disabled={lockingRecordId === record._id}
+                                              className="px-4 py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white font-semibold text-xs cursor-pointer transition-colors disabled:opacity-50 flex items-center gap-2"
+                                            >
+                                              <span>🔒</span>
+                                              <span>{lockingRecordId === record._id ? "Locking..." : "Lock"}</span>
+                                            </button>
+                                          ) : (
+                                            <button
+                                              onClick={() => {
+                                                handleUnlockRecord(record);
+                                                setOpenDropdownId(null);
+                                              }}
+                                              disabled={unlockingRecordId === record._id}
+                                              className="px-4 py-2.5 bg-yellow-500 hover:bg-yellow-600 text-white font-semibold text-xs cursor-pointer transition-colors disabled:opacity-50 flex items-center gap-2"
+                                            >
+                                              <span>🔓</span>
+                                              <span>{unlockingRecordId === record._id ? "Unlocking..." : "Unlock"}</span>
+                                            </button>
+                                          )
+                                        ) : null}
+                                        <button
+                                          onClick={() => {
+                                            handleViewLockLogs(record);
+                                            setOpenDropdownId(null);
+                                          }}
+                                          className="px-4 py-2.5 bg-purple-500 hover:bg-purple-600 text-white font-semibold text-xs cursor-pointer transition-colors flex items-center gap-2"
+                                          title="View lock history"
+                                        >
+                                          <span>📋</span>
+                                          <span>Logs</span>
+                                        </button>
+                                      </>
+                                    );
+                                  })()}
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
                         </div>
                       </td>
                     </tr>

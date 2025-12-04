@@ -4,6 +4,7 @@ import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
 import Swal from "sweetalert2";
 import { NotificationBadgeBadge } from "../components/NotificationBadge";
+import CounselorSidebar from "../components/CounselorSidebar";
 import { applyTheme, initializeTheme } from "../utils/themeUtils";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import { validatePassword } from "../utils/passwordValidation";
@@ -512,87 +513,11 @@ export default function SettingsPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 dark:border-indigo-400 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-300">Loading settings...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen w-full flex flex-col items-center bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 font-sans p-4 md:p-8 gap-6">
-      <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-6">
+      <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-6">
         {/* Left: Sidebar Navigation */}
-        <aside className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm h-fit lg:sticky lg:top-6">
-          <h2 className="text-xl font-bold text-indigo-600 dark:text-indigo-400 m-0">Guidance Dashboard</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-            The Dashboard provides counselors with an at-a-glance view of personal schedules, sessions,
-            meetings, and planned activities for the current day or week.
-          </p>
-
-          <div className="flex flex-col gap-3 mt-6">
-            <button
-              onClick={() => navigate("/dashboard")}
-              className="p-3 rounded-xl border border-indigo-50 dark:border-gray-700 bg-gradient-to-r from-white to-slate-50 dark:from-gray-800 dark:to-gray-700 hover:to-white dark:hover:to-gray-700 text-gray-900 dark:text-gray-100 font-semibold text-left transition-all"
-            >
-              Dashboard
-            </button>
-            <button
-              onClick={() => navigate("/records")}
-              className="p-3 rounded-xl border border-indigo-50 dark:border-gray-700 bg-gradient-to-r from-white to-slate-50 dark:from-gray-800 dark:to-gray-700 hover:to-white dark:hover:to-gray-700 text-gray-900 dark:text-gray-100 font-semibold text-left transition-all"
-            >
-              Records Page
-            </button>
-            <button
-              onClick={() => navigate("/reports")}
-              className="p-3 rounded-xl border border-indigo-50 dark:border-gray-700 bg-gradient-to-r from-white to-slate-50 dark:from-gray-800 dark:to-gray-700 hover:to-white dark:hover:to-gray-700 text-gray-900 dark:text-gray-100 font-semibold text-left transition-all"
-            >
-              Reports Page
-            </button>
-            <button
-              onClick={() => navigate("/notifications")}
-              className="p-3 rounded-xl border border-indigo-50 dark:border-gray-700 bg-gradient-to-r from-white to-slate-50 dark:from-gray-800 dark:to-gray-700 hover:to-white dark:hover:to-gray-700 text-gray-900 dark:text-gray-100 font-semibold text-left transition-all relative"
-            >
-              <span>Notification Center</span>
-              <span className="absolute top-1 right-1">
-                <NotificationBadgeBadge />
-              </span>
-            </button>
-            <button
-              onClick={() => navigate("/profile")}
-              className="p-3 rounded-xl border border-indigo-50 dark:border-gray-700 bg-gradient-to-r from-white to-slate-50 dark:from-gray-800 dark:to-gray-700 hover:to-white dark:hover:to-gray-700 text-gray-900 dark:text-gray-100 font-semibold text-left transition-all"
-            >
-              User Profile & Settings
-            </button>
-            <button
-              onClick={() => navigate("/settings")}
-              className="p-3 rounded-xl border border-indigo-50 dark:border-gray-700 bg-gradient-to-r from-indigo-50 to-white dark:from-indigo-900/30 dark:to-gray-800 hover:from-white hover:to-indigo-50 dark:hover:from-gray-800 dark:hover:to-indigo-900/30 text-white font-semibold text-left transition-all"
-              style={{ background: "linear-gradient(90deg, #4f46e5, #7c3aed)", color: "#fff" }}
-            >
-              Settings
-            </button>
-
-            <div className="flex gap-2 mt-4">
-              <button
-                onClick={fetchSettings}
-                className="flex-1 p-2.5 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition-colors"
-                disabled={saving}
-              >
-                {saving ? "Saving..." : "Refresh"}
-              </button>
-              <button
-                onClick={handleLogout}
-                className="p-2.5 rounded-xl bg-red-500 text-white font-semibold hover:bg-red-600 transition-colors"
-              >
-                Logout
-              </button>
-            </div>
-          </div>
-        </aside>
+        <CounselorSidebar />
 
         {/* Right: Main Settings Content */}
         <main className="flex-1">
@@ -685,11 +610,11 @@ export default function SettingsPage() {
                                   setPasswordForm({ ...passwordForm, currentPassword: e.target.value })
                                 }
                                 required
-                                className="w-full p-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                className="w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                               />
                             </div>
                             <div>
-                              <label className="block text-sm font-semibold text-gray-900 mb-2">
+                              <label className="block text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">
                                 New Password *
                               </label>
                               <input
@@ -699,7 +624,7 @@ export default function SettingsPage() {
                                   setPasswordForm({ ...passwordForm, newPassword: e.target.value })
                                 }
                                 required
-                                className="w-full p-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                className="w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                               />
                               <div className="mt-1">
                                 <PasswordStrengthMeter
@@ -710,7 +635,7 @@ export default function SettingsPage() {
                               </div>
                             </div>
                             <div>
-                              <label className="block text-sm font-semibold text-gray-900 mb-2">
+                              <label className="block text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">
                                 Confirm New Password *
                               </label>
                               <input
@@ -721,7 +646,7 @@ export default function SettingsPage() {
                                 }
                                 required
                                 minLength={8}
-                                className="w-full p-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                className="w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                               />
                             </div>
                             <motion.button

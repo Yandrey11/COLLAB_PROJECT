@@ -29,7 +29,8 @@ export default function NotificationCenter() {
     // Verify admin access
     const verifyAdmin = async () => {
       try {
-        const res = await axios.get("http://localhost:5000/api/admin/dashboard", {
+        const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
+        const res = await axios.get(`${baseUrl}/api/admin/dashboard`, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -70,7 +71,8 @@ export default function NotificationCenter() {
         search: search.trim() // Trim whitespace from search
       };
       
-      const res = await axios.get("http://localhost:5000/api/admin/notifications", {
+      const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
+      const res = await axios.get(`${baseUrl}/api/admin/notifications`, {
         headers: { Authorization: `Bearer ${token}` },
         params,
       });
@@ -109,7 +111,7 @@ export default function NotificationCenter() {
     try {
       const token = localStorage.getItem("adminToken");
       await axios.put(
-        `http://localhost:5000/api/admin/notifications/${notificationId}/read`,
+        `${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api/admin/notifications/${notificationId}/read`,
         {},
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -129,7 +131,7 @@ export default function NotificationCenter() {
     try {
       const token = localStorage.getItem("adminToken");
       await axios.put(
-        `http://localhost:5000/api/admin/notifications/${notificationId}/unread`,
+        `${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api/admin/notifications/${notificationId}/unread`,
         {},
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -164,7 +166,7 @@ export default function NotificationCenter() {
     try {
       const token = localStorage.getItem("adminToken");
       await axios.put(
-        "http://localhost:5000/api/admin/notifications/read-all",
+        `${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api/admin/notifications/read-all`,
         {},
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -201,7 +203,8 @@ export default function NotificationCenter() {
 
     try {
       const token = localStorage.getItem("adminToken");
-      await axios.delete(`http://localhost:5000/api/admin/notifications/${notificationId}`, {
+      const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
+      await axios.delete(`${baseUrl}/api/admin/notifications/${notificationId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -235,7 +238,8 @@ export default function NotificationCenter() {
 
     try {
       const token = localStorage.getItem("adminToken");
-      await axios.delete("http://localhost:5000/api/admin/notifications/read/all", {
+      const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
+      await axios.delete(`${baseUrl}/api/admin/notifications/read/all`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -303,7 +307,7 @@ export default function NotificationCenter() {
 
   return (
     <div className="min-h-screen w-full flex flex-col items-center bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 font-sans p-4 md:p-8 gap-6">
-      <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-6">
+      <div className="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-6">
         <AdminSidebar />
 
         <div className="flex flex-col gap-5">
